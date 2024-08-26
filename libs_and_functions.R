@@ -6,6 +6,8 @@ library(bioseq)
 library(rentrez)
 #library(rvest)
 
+#viridisLite
+
 #checker for uniprot,ensembl,dbsnp
 check_api_running = function(){
   res = GET("https://rest.uniprot.org/uniprotkb/search?query=accession%3A%28P15056%29&format=json")
@@ -56,9 +58,9 @@ GDC_info_retreiver <- function(Table, ssm_ids){
                           canonical=NA, aa_change=NA)
   datatable3 <- data.frame()
   
-  for (f in seq(1, nrow(Table), 65000)){
+  for (f in seq(1, nrow(Table), 35000)){
     print(f)
-    g = f+64999
+    g = f+34999
     if (g > nrow(Table)){
       g = nrow(Table)
     }
@@ -84,10 +86,21 @@ GDC_info_retreiver <- function(Table, ssm_ids){
   "fields":"consequence.transcript.is_canonical,ssm_autocomplete,consequence.transcript.aa_change,consequence.transcript.gene.canonical_transcript_id,consequence.transcript.consequence_type,consequence.transcript.gene.symbol,consequence.transcript.gene.gene_id,consequence.transcript.aa_change,genomic_dna_change,mutation_subtype,mutation_type,ssm_id,consequence.transcript.annotation.hgvsc",
   "format":"JSON",
   "pretty":"true",
-  "size":"65000"
+  "size":"35000"
   }'
     )
     res <- POST(url, encode = "json", config = content_type_json(), body = b)
+    loop_no = 0
+    while(loop_no != 5){
+      if(res$status_code != 200){
+        loop_no = loop_no + 1
+        Sys.sleep(5)
+        res <- POST(url, encode = "json", config = content_type_json(), body = b)
+      }else{
+        break
+      }
+    }
+ 
     data = fromJSON(rawToChar(res$content))
     datatable1 <- data[["data"]][["hits"]]
     for (n in 1:nrow(datatable1)){
@@ -123,6 +136,7 @@ GDC_info_retreiver <- function(Table, ssm_ids){
 Ensembl_protein_sequence_retreiver <- function(Table, Ensembl_ids){
   dfseq <- data.frame()
   idlist <- unique(Ensembl_ids)
+  print(length(idlist))
   for (n in seq(1, length(idlist), 50)){
     print(n)
     g = n+49
@@ -134,6 +148,16 @@ Ensembl_protein_sequence_retreiver <- function(Table, Ensembl_ids){
     b = gsub("XX", x, '{ "ids" : ["XX"], "type" : "protein"}')
     url <- "https://rest.ensembl.org/sequence/id"
     res <- POST(url, content_type("application/json"), accept("application/json"), body = b)
+    loop_no = 0
+    while(loop_no != 5){
+      if(res$status_code != 200){
+        loop_no = loop_no + 1
+        Sys.sleep(5)
+        res <- POST(url, content_type("application/json"), accept("application/json"), body = b)
+      }else{
+        break
+      }
+    }
     data = fromJSON(rawToChar(res$content))
     data = data.frame(transcript_id=data$query, seq=data$seq)
     dfseq = rbind(dfseq, data)
@@ -165,12 +189,17 @@ Ensembl_protein_sequence_retreiver <- function(Table, Ensembl_ids){
       x = gsub(", ", '","', toString(misslist[n:g]))
       b = gsub("XX", x, '{ "ids" : ["XX"], "type" : "protein"}')
       url <- "https://grch37.rest.ensembl.org/sequence/id"
-      tryCatch({
-        res <- POST(url, content_type("application/json"), accept("application/json"), body = b)
-        data = fromJSON(rawToChar(res$content))
-        data = data.frame(transcript_id=data$query, seq=data$seq)
-        dfseq2 = rbind(dfseq2, data)
-      },error=function(err){})
+      res <- POST(url, content_type("application/json"), accept("application/json"), body = b)
+      loop_no = 0
+      while(loop_no != 5){
+        if(res$status_code != 200){
+          loop_no = loop_no + 1
+          Sys.sleep(5)
+          res <- POST(url, content_type("application/json"), accept("application/json"), body = b)
+        }else{
+          break
+        }
+      }
     }
     dfseq = rbind(dfseq, dfseq2)
   }
@@ -409,6 +438,16 @@ Ensembl_Gene_id_retreiver <- function(Table, Ensembl_ids){
     b = gsub("XX", x, '{ "ids" : ["XX"] }')
     url <- "https://rest.ensembl.org/lookup/id"
     res <- POST(url, content_type("application/json"), accept("application/json"), body = b)
+    loop_no = 0
+    while(loop_no != 5){
+      if(res$status_code != 200){
+        loop_no = loop_no + 1
+        Sys.sleep(5)
+        res <- POST(url, content_type("application/json"), accept("application/json"), body = b)
+      }else{
+        break
+      }
+    }
     data = fromJSON(rawToChar(res$content))
     dat = data.frame(transcript_id=rep(NA, length(data)), Gene_id=NA)
     for (n in 1:length(data)){
@@ -454,20 +493,28 @@ Ensembl_Gene_id_retreiver <- function(Table, Ensembl_ids){
       x = gsub(", ", '","', toString(misslist[n:g]))
       b = gsub("XX", x, '{ "ids" : ["XX"]}')
       url <- "https://grch37.rest.ensembl.org/lookup/id"
-      tryCatch({
-        res <- POST(url, content_type("application/json"), accept("application/json"), body = b)
-        data = fromJSON(rawToChar(res$content))
-        
-        dat = data.frame(transcript_id=rep(NA, length(data)), Gene_id=NA)
-        for (n in 1:length(data)){
-          if(!(is.null(data[[n]]))){
-            dat$transcript_id[n] = data[[n]]$id
-            dat$Gene_id[n] = data[[n]]$Parent
-          }
+      res <- POST(url, content_type("application/json"), accept("application/json"), body = b)
+      loop_no = 0
+      while(loop_no != 5){
+        if(res$status_code != 200){
+          loop_no = loop_no + 1
+          Sys.sleep(5)
+          res <- POST(url, content_type("application/json"), accept("application/json"), body = b)
+        }else{
+          break
         }
-        data = dat
-        dfseq2 = rbind(dfseq2, data)
-      },error=function(err){})
+      }
+      data = fromJSON(rawToChar(res$content))
+      dat = data.frame(transcript_id=rep(NA, length(data)), Gene_id=NA)
+      for (n in 1:length(data)){
+        if(!(is.null(data[[n]]))){
+          dat$transcript_id[n] = data[[n]]$id
+          dat$Gene_id[n] = data[[n]]$Parent
+        }
+      }
+      data = dat
+      dfseq2 = rbind(dfseq2, data)
+
     }
     dfseq = rbind(dfseq, dfseq2)
   }
@@ -542,69 +589,115 @@ Ensembl_Gene_id_to_transcript_id = function(Table, Gene_ids){
 }
 
 #Mutant sequence generation
-MSI_seq_generator <- function(consequence, native_aa, aachng){
-  if (!(is.na(consequence))){
-    if (consequence == "missense_variant") {
-      #Generate misense mutant
-      x = aachng
-      l = nchar(x)
-      a = substr(x, 1, 1)
-      b = substr(x, l, l)
-      c = substr(x, 2, l-1)
-      c = as.numeric(c)
-      y = native_aa
-      substr(y, c, c)<-b
-      return(y)
-    }else if (consequence == "stop_gained") {
-      #Generate stop gained mutant
-      x = aachng
-      y = native_aa
-      l = nchar(x)
-      ly = nchar(y)
-      c = substr(x, 2, l-1)
-      c = as.numeric(c)
-      z = substr(y, 1, c-1)
-      return(z)
-    }else if (consequence == "inframe_deletion") {
-      #Generate inframe deletion mutants
-      x = aachng
-      if (grepl("_", x) == FALSE){
-        y = native_aa
-        c1 = strsplit(x, "del")[[1]][1]
-        c1 = substr(c1, 2, nchar(c1))
-        c1 = as.numeric(c1)
-        substr(y, c1, c1)<-" "
-      }else if (grepl("_", x) == TRUE){
-        x = strsplit(x, split = "del", fixed = TRUE)[[1]][1]
-        x = strsplit(x, split='_', fixed=TRUE)
-        x1 = x[[1]][1]
-        x2 = x[[1]][2]
-        l1 = nchar(x1)
-        c1 = substr(x1, 2, l1)
-        c1 = as.numeric(c1)
-        l2 = nchar(x2)
-        c2 = substr(x2, 2, l2)
-        c2 = as.numeric(c2)
-        c4 = c2-c1+1
-        y = native_aa
-        c3 = strrep(" ",c4)
-        substr(y, c1, c2)<-c3
-      }
-      if(grepl("delins", aachng) == TRUE){
-        ins = strsplit(aachng, "delins")[[1]][2]
-        substr(y, c1, c1) <- ins
-        y = gsub(" ", "", y, fixed = TRUE)
+MSII_generator <- function(hgvsp, WT_seq){
+  #generates variant sequences for missense, stop_gained, inframe_deletion, 
+  #inframe_insertion mutation consequences
+  if((!(is.na(hgvsp))) & (!(is.na(WT_seq)))){
+    if((!(grepl("fs", hgvsp))) & (!(grepl("ext", hgvsp))) & (!(grepl("splice", hgvsp))) & 
+       (!(grepl("?", hgvsp, fixed = T))) & (!(grepl("=", hgvsp, fixed = T)))){
+      WT_seq = paste(WT_seq, "*", sep="")
+      if(grepl("delins", hgvsp)){
+        if(grepl("_", hgvsp)){
+          #delins range of residues
+          x = strsplit(hgvsp, split = "delins")[[1]]
+          ins_residues = x[2]
+          del_region = strsplit(x[1], split = "_")[[1]]
+          l1 = nchar(del_region[1])
+          l2 = nchar(del_region[2])
+          position1 = as.numeric(substr(del_region[1], start = 2, l1))
+          position2 = as.numeric(substr(del_region[2], start = 2, l2))
+          replace = paste(rep("x", {position2-position1+1}), collapse = "")
+          substr(WT_seq, position1, position2) <- replace
+          sequence = gsub(replace, ins_residues, WT_seq)
+        }else{
+          #delins single of residues
+          x = strsplit(hgvsp, split = "delins")[[1]]
+          ins_residues = x[2]
+          del_region = x[1]
+          l1 = nchar(del_region)
+          position = as.numeric(substr(del_region, start = 2, l1))
+          replace = "x"
+          substr(WT_seq, position, position) <- replace
+          sequence = gsub(replace, ins_residues, WT_seq)
+        }
+      }else if(grepl("del", hgvsp)){
+        if(grepl("_",  hgvsp)){
+          #del range of residues
+          x = strsplit(hgvsp, split = "del")[[1]]
+          del_region = strsplit(x[1], split = "_")[[1]]
+          l1 = nchar(del_region[1])
+          l2 = nchar(del_region[2])
+          position1 = as.numeric(substr(del_region[1], start = 2, l1))
+          position2 = as.numeric(substr(del_region[2], start = 2, l2))
+          replace = paste(rep("x", {position2-position1+1}), collapse = "")
+          substr(WT_seq, position1, position2) <- replace
+          sequence = gsub(replace, "", WT_seq)
+        }else{
+          #del single residue
+          del_region = strsplit(hgvsp, split = "del")[[1]][1]
+          l1 = nchar(del_region)
+          position = as.numeric(substr(del_region, start = 2, l1))
+          replace = "x"
+          substr(WT_seq, position, position) <- replace
+          sequence = gsub(replace, "", WT_seq)
+        }
+      }else if(grepl("ins", hgvsp)){
+        #ins range of residues
+        x = strsplit(hgvsp, split = "ins")[[1]]
+        ins_residues = x[2]
+        ins_region = strsplit(x[1], split = "_")[[1]]
+        l1 = nchar(ins_region[1])
+        l2 = nchar(ins_region[2])
+        position1 = as.numeric(substr(ins_region[1], start = 2, l1))
+        position2 = as.numeric(substr(ins_region[2], start = 2, l2))
+        residue1 = substr(ins_region[1], start = 1, 1)
+        residue2 = substr(ins_region[2], start = 1, 1)
+        replace = paste(rep("x", {position2-position1+1}), collapse = "")
+        substr(WT_seq, position1, position2) <- replace
+        sequence = gsub(replace, paste(residue1, ins_residues, residue2, sep = ""), WT_seq)
+      }else if(grepl("du", hgvsp)){
+        if(grepl("_", hgvsp)){
+          #dup over range of residues
+          x = strsplit(hgvsp, split = "du")[[1]]
+          dup_region = strsplit(x[1], split = "_")[[1]]
+          l1 = nchar(dup_region[1])
+          l2 = nchar(dup_region[2])
+          position1 = as.numeric(substr(dup_region[1], start = 2, l1))
+          position2 = as.numeric(substr(dup_region[2], start = 2, l2))
+          dup = substr(WT_seq, position1, position2)
+          replace = paste(rep("x", {position2-position1+1}), collapse = "")
+          substr(WT_seq, position1, position2) <- replace
+          sequence = gsub(replace, paste(dup, dup, sep=""), WT_seq)
+        }else{
+          #dup of single residue
+          dup_region = strsplit(hgvsp, split = "du")[[1]][1]
+          l1 = nchar(dup_region[1])
+          position1 = as.numeric(substr(dup_region[1], start = 2, l1))
+          dup = substr(WT_seq, position1, position1)
+          replace = "x"
+          substr(WT_seq, position1, position1) <- replace
+          sequence = gsub(replace, paste(dup, dup, sep=""), WT_seq)
+        }
       }else{
-        y = gsub(" ", "", y, fixed = TRUE)
+        #sub one residue with another
+        l = nchar(hgvsp)
+        position = as.numeric(substr(hgvsp, 2, l-1))
+        replace = substr(hgvsp, l, l)
+        substr(WT_seq, position, position) <- replace
+        sequence = WT_seq
       }
-      if (grepl("*", y, fixed=TRUE) == TRUE){
-        y = strsplit(y, "*", fixed = TRUE)[[1]][1]
+      if(grepl("*", sequence)){
+        #check if stops introduced and trim
+        sequence = strsplit(sequence, split = "*", fixed = T)[[1]][1]
       }
-      return(y)
+      #returns processed sequence
+      return(sequence)
     }else{
+      #ignore frameshifts here
       return(NA)
     }
   }else{
+    #no hgvsp entered, or no WT sequence
     return(NA)
   }
 }
@@ -698,269 +791,269 @@ cdna_cleaner <- function(cdna){
   }
   return(cdna)
 }
-frameshift_seq_generator <- function(cdna, native_aa, hgvsc){
-  if (!(is.na(cdna)) & !(is.na(native_aa)) & !(is.na(hgvsc))){
-    if(grepl("*", hgvsc, fixed = T)){
-      return(NA)
-    }
-    if(grepl("+", hgvsc, fixed = T)){
-      return(NA)
-    }
-    c = hgvsc
-    codna <- cdna
-    rna <- seq_transcribe(as_dna(codna))
-    aaseq <- seq_translate(rna)
-    aaseq <- toString(aaseq[1])
-    aaseq <- strsplit(aaseq,split='*', fixed=TRUE)
-    aaseq <- aaseq[[1]][1]
-    if (aaseq == native_aa){
-      if (grepl('delins', hgvsc, fixed = TRUE)){
-        if (grepl("_", hgvsc, fixed = TRUE) == FALSE){
-          c = strsplit(c, "delins")
-          ins = c[[1]][2]
-          pos = c[[1]][1]
-          pos = as.numeric(pos)
-          substr(codna, pos, pos) <- " "
-          codna = gsub(" ", ins, codna, fixed = TRUE)
-        }else if (grepl("_", hgvsc, fixed = TRUE) == TRUE){
-          c = strsplit(c, "delins")
-          ins = c[[1]][2]
-          pos = c[[1]][1]
-          pos = strsplit(pos, "_", fixed = TRUE)
-          pos1 = as.numeric(pos[[1]][1])
-          pos2 = as.numeric(pos[[1]][2])
-          l = pos2-pos1+1
-          rep = strrep(" ", l)
-          substr(codna, pos1, pos2) <- rep
-          codna = gsub(rep, ins, codna, fixed = TRUE)
-        }
-        rna <- seq_transcribe(as_dna(codna))
+FrS_generator <- function(hgvsc, hgvsp, cdna_seq, WT_seq){
+  if((!(is.na(hgvsp))) & (!(is.na(WT_seq)))){
+    if((grepl("fs", hgvsp)) | (grepl("ext", hgvsp))){
+      if((!(is.na(hgvsc))) & (!(is.na(cdna_seq))) & (!(grepl("+", hgvsc, fixed = T))) & (!(grepl("-", hgvsc, fixed = T)))){
+        #check cdna here
+        rna <- seq_transcribe(as_dna(cdna_seq))
         aaseq <- seq_translate(rna)
         aaseq <- toString(aaseq[1])
-        x = strsplit(aaseq, split='*', fixed=TRUE)
-        x1 = x[[1]][1]
-        return(x1)
-      }else if (grepl('del', hgvsc, fixed = TRUE)){
-        if (grepl("_", hgvsc) == FALSE){
-          c = strsplit(c, split = "del", fixed = TRUE)[[1]][1]
-          c = as.numeric(c)
-          substr(codna, c, c)<-" "
-          codna <- gsub(" ", "", codna, fixed = TRUE)
-          rna <- seq_transcribe(as_dna(codna))
-          aaseq <- seq_translate(rna)
-          aaseq <- toString(aaseq[1])
-          x = strsplit(aaseq, split='*', fixed=TRUE)
-          x1 = x[[1]][1]
-          return(x1)
-        }else if (grepl("_", hgvsc) == TRUE){
-          c = strsplit(c, split = "del", fixed = TRUE)[[1]][1]
-          c0 = strsplit(c,split='_', fixed=TRUE)
-          c1 = c0[[1]][1]
-          c2 = c0[[1]][2]
-          c1 = as.numeric(c1)
-          c2 = as.numeric(c2)
-          c3 = c2 - c1 + 1
-          c4 = strrep(" ",c3)
-          substr(codna, c1, c2) <- c4
-          codna <- gsub(" ", "", codna, fixed = TRUE)
-          rna <- seq_transcribe(as_dna(codna))
-          aaseq <- seq_translate(rna)
-          aaseq <- toString(aaseq[1])
-          x = strsplit(aaseq,split='*', fixed=TRUE)
-          x1 = x[[1]][1]
-          return(x1)
+        aaseq <- strsplit(aaseq,split='*', fixed=TRUE)
+        aaseq <- aaseq[[1]][1]
+        if(WT_seq == aaseq){
+          if(grepl("delins", hgvsc)){
+            if(grepl("_", hgvsc)){
+              #range of delins
+              x = strsplit(hgvsc, split = "delins")[[1]]
+              ins_residues = x[2]
+              del_region = strsplit(x[1], split = "_")[[1]]
+              position1 = as.numeric(del_region[1])
+              position2 = as.numeric(del_region[2])
+              replace = paste(rep("x", {position2-position1+1}), collapse = "")
+              substr(cdna_seq, position1, position2) <- replace
+              sequence = gsub(replace, ins_residues, cdna_seq, perl = T)
+            }else{
+              #single delins
+              x = strsplit(hgvsc, split = "delins")[[1]]
+              ins_residues = x[2]
+              del_region = x[1]
+              position = as.numeric(del_region)
+              replace = "x"
+              substr(cdna_seq, position, position) <- replace
+              sequence = gsub(replace, ins_residues, cdna_seq, perl = T)
+            }
+          }else if(grepl("del", hgvsc)){
+            if(grepl("_", hgvsc)){
+              #range of deletions
+              del_region = strsplit(hgvsc, split = "del")[[1]][1]
+              del_region = strsplit(del_region, split = "_")[[1]]
+              position1 = as.numeric(del_region[1])
+              position2 = as.numeric(del_region[2])
+              replace = paste(rep("x", {position2-position1+1}), collapse = "")
+              substr(cdna_seq, position1, position2) <- replace
+              sequence = gsub(replace, "", cdna_seq, perl = T)
+            }else{
+              #single deletions
+              del_region = strsplit(hgvsc, split = "del")[[1]][1]
+              position = as.numeric(del_region)
+              replace = "x"
+              substr(cdna_seq, position, position) <- replace
+              sequence = gsub(replace, "", cdna_seq, perl = T)
+            }
+          }else if(grepl("ins", hgvsc)){
+            #range of insertions
+            x = strsplit(hgvsc, split = "ins")[[1]]
+            ins_residues = x[2]
+            ins_region = strsplit(x[1], split = "_")[[1]]
+            position1 = as.numeric(ins_region[1])
+            position2 = as.numeric(ins_region[2])
+            residue1 = substr(cdna_seq, start = position1, position1)
+            residue2 = substr(cdna_seq, start = position2, position2)
+            replace = paste(rep("x", {position2-position1+1}), collapse = "")
+            substr(cdna_seq, position1, position2) <- replace
+            sequence = gsub(replace, paste(residue1, ins_residues, residue2, sep = ""), cdna_seq, perl = T)
+          }else if(grepl("dup", hgvsc)){
+            if(grepl("_", hgvsc)){
+              #range of dup
+              x = strsplit(hgvsc, split = "dup")[[1]]
+              dup_region = strsplit(x[1], split = "_")[[1]]
+              position1 = as.numeric(dup_region[1])
+              position2 = as.numeric(dup_region[2])
+              dup = substr(cdna_seq, position1, position2)
+              replace = paste(rep("x", {position2-position1+1}), collapse = "")
+              substr(cdna_seq, position1, position2) <- replace
+              sequence = gsub(replace, paste(dup, dup, sep=""), cdna_seq, perl = T)
+            }else{
+              #single dup
+              dup_region = strsplit(hgvsc, split = "dup")[[1]][1]
+              position1 = as.numeric(dup_region)
+              dup = substr(cdna_seq, position1, position1)
+              replace = "x"
+              substr(cdna_seq, position1, position1) <- replace
+              sequence = gsub(replace, paste(dup, dup, sep=""), cdna_seq, perl = T)
+            }
+          }else if(grepl("inv", hgvsc)){
+            #range of inversions
+            #none for now...
+            return(NA)
+          }else if(grepl(">", hgvsc)){
+            #single residue variant
+            x = strsplit(hgvsc, ">", fixed=T)[[1]]
+            replace = x[2]
+            l = nchar(x[1])
+            position = as.numeric(substr(hgvsc, 1, l-1))
+            substr(cdna_seq, position, position) <- replace
+            sequence = cdna_seq
+          }else{
+            return(NA)
+          }
+          #cdna -> protein
+          sequence <- seq_transcribe(as_dna(sequence))
+          sequence <- seq_translate(sequence)
+          sequence <- toString(sequence[1])
+          sequence <- strsplit(sequence,split='*', fixed=TRUE)
+          sequence <- sequence[[1]][1]
+          return(sequence)
+        }else{
+          return(NA)
         }
-      }else if (grepl('dup', hgvsc, fixed = TRUE)){
-        if(!(grepl("_",hgvsc, fixed = TRUE))){
-          c = strsplit(c, split = "dup", fixed = TRUE)[[1]][1]
-          c = as.numeric(c)
-          d = substr(codna, c, c)
-          d = strrep(d,2)
-          substr(codna, c, c)<-" "
-          codna <- gsub(" ", d, codna, fixed = TRUE)
-          rna <- seq_transcribe(as_dna(codna))
-          aaseq <- seq_translate(rna)
-          aaseq <- toString(aaseq[1])
-          x = strsplit(aaseq,split='*', fixed=TRUE)
-          x1 = x[[1]][1]
-          return(x1)
-        }else if (grepl("_",hgvsc, fixed = TRUE)){
-          c = strsplit(c, split = "dup", fixed = TRUE)[[1]][1]
-          c0 = strsplit(c,split='_', fixed=TRUE)
-          c1 = c0[[1]][1]
-          c2 = c0[[1]][2]
-          c1 = as.numeric(c1)
-          c2 = as.numeric(c2)
-          c3 = c2 - c1 + 1
-          c4 = strrep(" ",c3)
-          d = substr(codna, c1, c2)
-          d = strrep(d,2)
-          substr(codna, c1, c2)<-c4
-          codna <- gsub(c4, d, codna, fixed = TRUE)
-          rna <- seq_transcribe(as_dna(codna))
-          aaseq <- seq_translate(rna)
-          aaseq <- toString(aaseq[1])
-          x = strsplit(aaseq,split='*', fixed=TRUE)
-          x1 = x[[1]][1]
-          return(x1)
-        }
-      }else if (grepl('ins', hgvsc, fixed = TRUE)){
-        c = strsplit(c, split = "ins", fixed = TRUE)[[1]]
-        c0 = strsplit(c[1],split='_', fixed=TRUE)
-        c1 = c0[[1]][1]
-        c2 = c0[[1]][2]
-        c1 = as.numeric(c1)
-        c2 = as.numeric(c2)
-        ins = c[2]
-        start = substr(codna, 1, c1)
-        end = substr(codna, c2, nchar(codna))
-        codna = paste0(start, ins, end, sep = "")
-        rna <- seq_transcribe(as_dna(codna))
-        aaseq <- seq_translate(rna)
-        aaseq <- toString(aaseq[1])
-        x = strsplit(aaseq,split='*', fixed=TRUE)
-        x1 = x[[1]][1]
-        return(x1)
       }else{
         return(NA)
       }
-    }else {
-      "Error:cdna found doesn't match native"
-    }
-  }else{
-    return(NA)
-  }
-}
-stop_lost_seq_generator = function(cdna, hgvsc, consequence){
-  if ((consequence == "stop_lost")&(length(cdna) == 1)){
-    pos = strsplit(hgvsc, ">", fixed = TRUE)
-    x = pos[[1]][2]
-    pos = substr(pos[[1]][1], 1, (nchar(pos[[1]][1])-1))
-    pos = as.numeric(pos)
-    substr(cdna, pos, pos) <- x
-    y <- seq_translate(seq_transcribe(as_dna(cdna)))
-    y <- toString(y)
-    y <- strsplit(y,split='*', fixed=TRUE)[[1]][1]
-    return(y)
-  }else{
-    return(NA)
-  }
-}
-inframe_insertion_seq_generator = function(native_aa, hgvsp, consequence){
-  #Generate inframe insertion mutants
-  x = hgvsp
-  y = native_aa
-  if (consequence == "inframe_insertion"){
-    if (!(is.na(native_aa))&!(is.na(hgvsp))&!(is.na(consequence))){
-      if (grepl("delins", x, fixed = TRUE)){
-        x = strsplit(x, "delins")
-        ins = x[[1]][2]
-        c1 = substr(x[[1]][1], 2, nchar(x[[1]][1]))
-        c1 = as.numeric(c1)
-        substr(y, c1, c1) <- " "
-        y = gsub(" ", ins, y, fixed = TRUE)
-      }else if(grepl("ins", x, fixed = TRUE)){
-        pos = range_identifier("ins", x)
-        ins = strsplit(x, "ins")[[1]][2]
-        y = paste(substring(y, 1, pos[1]),
-                  ins,
-                  substring(y, pos[2], nchar(y)), sep = "")
-      }else if(grepl("du", x, fixed = TRUE)){
-        if (grepl("_", x, fixed = TRUE)==TRUE){
-          pos = range_identifier("du", x)
-          dup = substring(y, pos[1], pos[2])
-          y = paste(substring(y, 1, pos[2]),
-                    dup,
-                    substring(y, pos[2]+1, nchar(y)), sep = "")
-        }else if(grepl("_", x, fixed = TRUE)==FALSE){
-          pos = strsplit(x, "du", fixed=TRUE)[[1]][1]
-          pos = as.numeric(substr(pos, 2, nchar(pos)))
-          dup = substr(y, pos, pos)
-          y = paste(substring(y, 1, pos),
-                    dup,
-                    substring(y, pos+1, nchar(y)), sep = "")
-        }
-      }
-      y = strsplit(y, "*", fixed = TRUE)[[1]][1]
-      return(y)
     }else{
       return(NA)
     }
+  }else{
+    return(NA)
   }
-}
-range_identifier = function(type, hgvsp){
-  x = strsplit(hgvsp, split = type, fixed = TRUE)[[1]][1]
-  x = strsplit(x, split='_', fixed=TRUE)
-  x1 = x[[1]][1]
-  x2 = x[[1]][2]
-  x1 = as.numeric(substring(x1, 2, nchar(x1)))
-  x2 = as.numeric(substring(x2, 2, nchar(x2)))
-  return(c(x1,x2))
 }
 
 #Validating sequences
-#Native
-MSI_mut_checker <- function(consequence, native_aa, aachng){
-  if (!(is.na(consequence))&!(is.na(native_aa))){
-    if (consequence == "missense_variant") {
-      #Generate misense mutant
-      y = native_aa
-      x = aachng
-      l = nchar(x)
-      a = substr(x, 1, 1)
-      c = substr(x, 2, l-1)
-      c = as.numeric(c)
-      if (is.na(c)){
-        return(FALSE)
-      }
-      if (a == substr(y, c, c)){
-        return(TRUE)
-      }else{
-        return(FALSE)
-      }
-    }else if (consequence == "stop_gained") {
-      #Generate stop gained mutant
-      x = aachng
-      y = native_aa
-      l = nchar(x)
-      ly = nchar(y)
-      c = substr(x, 2, l-1)
-      c = as.numeric(c)
-      a = substr(x, 1, 1)
-      if (a == substr(y, c, c)){
-        return(TRUE)
-      }else{
-        return(FALSE)
-      }
-    }else if (consequence == "inframe_deletion") {
-      #Generate inframe deletion mutants
-      x = aachng
-      if (grepl("_", x) == FALSE){
-        y = native_aa
-        c1 = strsplit(x, "del")[[1]][1]
-        c1 = substr(c1, 2, nchar(c1))
-        c1 = as.numeric(c1)
-        a = substr(x, 1,1)
-        if (a == substr(y, c1, c1)){
+#Native 
+Validation_checker_1 <- function(hgvsp, WT_seq){
+  #generates variant sequences for missense, stop_gained, inframe_deletion, 
+  #inframe_insertion mutation consequences
+  if((!(is.na(hgvsp))) & (!(is.na(WT_seq)))){
+    if((!(grepl("?", hgvsp, fixed = T)))){
+      WT_seq = paste(WT_seq, "*", sep="")
+      if(grepl("delins", hgvsp)){
+        if(grepl("_", hgvsp)){
+          #delins range of residues
+          x = strsplit(hgvsp, split = "delins")[[1]]
+          del_region = strsplit(x[1], split = "_")[[1]]
+          l1 = nchar(del_region[1])
+          l2 = nchar(del_region[2])
+          position1 = as.numeric(substr(del_region[1], start = 2, l1))
+          position2 = as.numeric(substr(del_region[2], start = 2, l2))
+          residue1 = substr(del_region[1], 1, 1)
+          residue2 = substr(del_region[2], 1, 1)
+          if((substr(WT_seq, position1, position1) == residue1) & (substr(WT_seq, position2, position2) == residue2)){
+            return(TRUE)
+          }else{
+            return(FALSE)
+          }
+        }else{
+          #delins single of residues
+          x = strsplit(hgvsp, split = "delins")[[1]]
+          del_region = x[1]
+          l1 = nchar(del_region)
+          position = as.numeric(substr(del_region, start = 2, l1))
+          residue1 = substr(del_region[1], 1, 1)
+          if(substr(WT_seq, position, position) == residue1){
+            return(TRUE)
+          }else{
+            return(FALSE)
+          }
+        }
+      }else if(grepl("delext", hgvsp)){
+        #del range of residues
+        del_region = strsplit(hgvsp, split = "delext")[[1]][1]
+        position = as.numeric(regmatches(del_region, regexpr("[[:digit:]]+", del_region)))
+        residue1 = strsplit(del_region, position)[[1]][1]
+        l1 = nchar(residue1)
+        if(substr(WT_seq, position, position+l1-1) == residue1){
           return(TRUE)
         }else{
           return(FALSE)
         }
-      }else if (grepl("_", x) == TRUE){
-        x = strsplit(x, split = "del", fixed = TRUE)[[1]][1]
-        x = strsplit(x, split='_', fixed=TRUE)
-        x1 = x[[1]][1]
-        x2 = x[[1]][2]
-        a1 = substr(x1, 1, 1)
-        a2 = substr(x2, 1, 1)
-        l1 = nchar(x1)
-        c1 = substr(x1, 2, l1)
-        c1 = as.numeric(c1)
-        l2 = nchar(x2)
-        c2 = substr(x2, 2, l2)
-        c2 = as.numeric(c2)
-        y = native_aa
-        if ((a1 == substr(y, c1, c1))&(a2 == substr(y, c2, c2))){
+      }else if(grepl("del", hgvsp)){
+        if(grepl("_",  hgvsp)){
+          #del range of residues
+          x = strsplit(hgvsp, split = "del")[[1]]
+          del_region = strsplit(x[1], split = "_")[[1]]
+          l1 = nchar(del_region[1])
+          l2 = nchar(del_region[2])
+          position1 = as.numeric(substr(del_region[1], start = 2, l1))
+          position2 = as.numeric(substr(del_region[2], start = 2, l2))
+          residue1 = substr(del_region[1], 1, 1)
+          residue2 = substr(del_region[2], 1, 1)
+          if((substr(WT_seq, position1, position1) == residue1) & (substr(WT_seq, position2, position2) == residue2)){
+            return(TRUE)
+          }else{
+            return(FALSE)
+          }
+        }else{
+          #del single residue
+          del_region = strsplit(hgvsp, split = "del")[[1]][1]
+          l1 = nchar(del_region)
+          position = as.numeric(substr(del_region, start = 2, l1))
+          residue1 = substr(del_region[1], 1, 1)
+          if(substr(WT_seq, position, position) == residue1){
+            return(TRUE)
+          }else{
+            return(FALSE)
+          }
+        }
+      }else if(grepl("ins", hgvsp)){
+        #ins range of residues
+        x = strsplit(hgvsp, split = "ins")[[1]]
+        ins_region = strsplit(x[1], split = "_")[[1]]
+        l1 = nchar(ins_region[1])
+        l2 = nchar(ins_region[2])
+        position1 = as.numeric(substr(ins_region[1], start = 2, l1))
+        position2 = as.numeric(substr(ins_region[2], start = 2, l2))
+        residue1 = substr(ins_region[1], start = 1, 1)
+        residue2 = substr(ins_region[2], start = 1, 1)
+        if((substr(WT_seq, position1, position1) == residue1) & (substr(WT_seq, position2, position2) == residue2)){
+          return(TRUE)
+        }else{
+          return(FALSE)
+        }
+      }else if(grepl("du", hgvsp)){
+        if(grepl("_", hgvsp)){
+          #dup over range of residues
+          x = strsplit(hgvsp, split = "du")[[1]]
+          dup_region = strsplit(x[1], split = "_")[[1]]
+          l1 = nchar(dup_region[1])
+          l2 = nchar(dup_region[2])
+          position1 = as.numeric(substr(dup_region[1], start = 2, l1))
+          position2 = as.numeric(substr(dup_region[2], start = 2, l2))
+          residue1 = substr(dup_region[1], start = 1, 1)
+          residue2 = substr(dup_region[2], start = 1, 1)
+          if((substr(WT_seq, position1, position1) == residue1) & (substr(WT_seq, position2, position2) == residue2)){
+            return(TRUE)
+          }else{
+            return(FALSE)
+          }
+        }else{
+          #dup of single residue
+          dup_region = strsplit(hgvsp, split = "du")[[1]][1]
+          l1 = nchar(dup_region[1])
+          position1 = as.numeric(substr(dup_region[1], start = 2, l1))
+          residue1 = substr(dup_region[1], start = 1, 1)
+          if(substr(WT_seq, position1, position1) == residue1){
+            return(TRUE)
+          }else{
+            return(FALSE)
+          }
+        }
+      }else if(grepl("fs", hgvsp)){
+        shift = strsplit(hgvsp, "fs")[[1]]
+        l = nchar(shift[1])
+        position = as.numeric(substr(shift[1], 2, l-1))
+        residue1 = substr(shift[1], 1, 1)
+        if(substr(WT_seq, position, position) == residue1){
+          return(TRUE)
+        }else{
+          return(FALSE)
+        }
+      }else if(grepl("ext", hgvsp)){
+        shift = strsplit(hgvsp, "ext")[[1]]
+        l = nchar(shift[1])
+        position = as.numeric(substr(shift[1], 2, l-1))
+        residue1 = substr(shift[1], 1, 1)
+        if(substr(WT_seq, position, position) == residue1){
+          return(TRUE)
+        }else{
+          return(FALSE)
+        }
+      }else{
+        #sub one residue with another
+        l = nchar(hgvsp)
+        position = as.numeric(substr(hgvsp, 2, l-1))
+        residue1 = substr(hgvsp, 1, 1)
+        if(substr(WT_seq, position, position) == residue1){
           return(TRUE)
         }else{
           return(FALSE)
@@ -970,511 +1063,259 @@ MSI_mut_checker <- function(consequence, native_aa, aachng){
       return(NA)
     }
   }else{
-    return(NA)
-  }
-}
-frameshift_mut_checker <- function(native_aa, hgvsp, consequence){
-  if (!(is.na(native_aa)) & !(is.na(hgvsp)) & (consequence == "frameshift_variant")){
-    if (!(grepl("delins", hgvsp))){
-      a = substr(hgvsp, 1, 1)
-      c = strsplit(hgvsp, "fs")[[1]][1]
-      c = substr(c, 2, nchar(c)-1)
-      c = as.numeric(c)
-    }else if(grepl("delins", hgvsp)){
-      a = substr(hgvsp, 1, 1)
-      c = strsplit(hgvsp, "delins")[[1]][1]
-      c = substr(c, 2, nchar(c))
-      c = as.numeric(c)
-    }
-    if(a == substr(native_aa, c, c)){
-      return(TRUE)
-    }else{
-      return(FALSE)
-    }
-  }else{
-    return(NA)
-  }
-}
-inframe_insertion_mut_checker = function(native_aa, hgvsp, consequence){
-  #Generate inframe insertion mutants
-  x = hgvsp
-  y = native_aa
-  if (consequence == "inframe_insertion"){
-    if (!(is.na(native_aa))&!(is.na(hgvsp))&!(is.na(consequence))){
-      if (grepl("delins", x, fixed = TRUE)){
-        x = strsplit(x, "delins")[[1]][1]
-        c1 = substr(x, 2, nchar(x))
-        c1 = as.numeric(c1)
-        a = substr(hgvsp, 1, 1)
-        if (a == substr(native_aa, c1, c1)){
-          return(TRUE)
-        }else{
-          return(FALSE)
-        }
-      }else if(grepl("ins", x, fixed = TRUE)){
-        pos = range_identifier("ins", x)
-        ins = strsplit(x, "ins")[[1]][1]
-        a = strsplit(ins, "_", fixed = TRUE)[[1]]
-        a1 = substr(a[1], 1, 1)
-        a2 = substr(a[2], 1, 1)
-        
-        if ((a1 == substr(y, pos[1], pos[1]))&(a2 == substr(y, pos[2], pos[2]))){
-          return(TRUE)
-        }else{
-          return(FALSE)
-        }
-      }else if(grepl("du", x, fixed = TRUE)){
-        if (grepl("_", x, fixed = TRUE)==TRUE){
-          pos = range_identifier("du", x)
-          ins = strsplit(x, "du")[[1]][1]
-          a = strsplit(ins, "_", fixed = TRUE)[[1]]
-          a1 = substr(a[1], 1, 1)
-          a2 = substr(a[2], 1, 1)
-          dup = substring(y, pos[1], pos[2])
-          
-          if ((a1 == substr(y, pos[1], pos[1]))&(a2 == substr(y, pos[2], pos[2]))){
-            return(TRUE)
-          }else{
-            return(FALSE)
-          }
-        }else if(grepl("_", x, fixed = TRUE)==FALSE){
-          pos = strsplit(x, "du", fixed=TRUE)[[1]][1]
-          pos = as.numeric(substr(pos, 2, nchar(pos)))
-          a = substr(x, 1, 1)
-          
-          if(a == substr(y, pos, pos)){
-            return(TRUE)
-          }else{
-            return(FALSE)
-          }
-        }
-      }
-    }else{
-      return(NA)
-    }
-  }
-}
-stop_lost_mut_checker = function(native_aa, hgvsp, consequence){
-  if ((consequence == "stop_lost")&(!(is.na(native_aa)))&(!(is.na(hgvsp)))){
-    c = strsplit(hgvsp, "ext")[[1]][1]
-    c1 = substr(c, 2, nchar(c)-1)
-    c1 = as.numeric(c1)
-    if((nchar(native_aa) == (c1-1))){
-      return(TRUE)
-    }else{
-      return(FALSE)
-    }
-  }else{
+    #no hgvsp entered, or no WT sequence
     return(NA)
   }
 }
 
 #Mutant
-MSI_mut_checker_2 <- function(consequence, native_aa, aachng){
-  if (!(is.na(consequence))&!(is.na(native_aa))){
-    if (consequence == "missense_variant") {
-      #Generate misense mutant
-      y = native_aa
-      x = aachng
-      l = nchar(x)
-      a = substr(x, l, l)
-      c = substr(x, 2, l-1)
-      c = as.numeric(c)
-      if (a == substr(y, c, c)){
-        return(TRUE)
-      }else{
-        return(FALSE)
-      }
-    }else if (consequence == "stop_gained") {
-      #Generate stop gained mutant
-      x = aachng
-      y = native_aa
-      l = nchar(x)
-      ly = nchar(y)
-      c = substr(x, 2, l-1)
-      c = as.numeric(c)
-      if (ly == (c-1)){
-        return(TRUE)
-      }else{
-        return(FALSE)
-      }
-    }else if (consequence == "inframe_deletion") {
-      #Generate inframe deletion mutants
-      x = aachng
-      if (grepl("delins", x) == TRUE){
-        x = strsplit(x, split = "delins", fixed = TRUE)
-        d = x[[1]][2]
-        x = x[[1]][1]
-        x = strsplit(x, split='_', fixed=TRUE)
-        x1 = x[[1]][1]
-        x2 = x[[1]][2]
-        a1 = substr(x1, 1, 1)
-        a2 = substr(x2, 1, 1)
-        l1 = nchar(x1)
-        c1 = substr(x1, 2, l1)
-        c1 = as.numeric(c1)
-        l2 = nchar(x2)
-        c2 = substr(x2, 2, l2)
-        c2 = as.numeric(c2)
-        y = native_aa
-        if (d == substr(y, c1, (c1-1+nchar(d)))){
-          return(TRUE)
-        }else{
-          return(FALSE)
-        }
-      }else if(grepl("del", x)){
-        return(TRUE)
-      }
-    }else{
-      return(NA)
-    }
-  }else{
-    return(NA)
-  }
-}
-frameshift_mut_checker_2 <- function(native_aa, hgvsp, consequence){
-  if (!(is.na(native_aa)) & !(is.na(hgvsp)) & (consequence == "frameshift_variant")){
-    if (grepl("?", hgvsp, fixed=TRUE)){
-      return(FALSE)
-    }
-    if(!(grepl("delins", hgvsp))){
-      c = strsplit(hgvsp, "fs*", fixed = TRUE)
-      c2 = as.numeric(c[[1]][2])
-      c = c[[1]][1]
-      d = substr(c, nchar(c), nchar(c))
-      c = substr(c, 2, nchar(c)-1)
-      c = as.numeric(c)
-    }else if (grepl("delins", hgvsp)){
-      c = strsplit(hgvsp, "delins")[[1]]
-      d = strsplit(c[2], "*", fixed=TRUE)[[1]][1]
-      c = substr(c[1], 2, nchar(c))
-      c = as.numeric(c)
-      if(d == substr(native_aa, c, c)){
-        return(TRUE)
-      }else{
-        return(FALSE)
-      }
-    }
-    if((d == substr(native_aa, c, c)) & (nchar(native_aa) == (c+c2-2))){
-      return(TRUE)
-    }else if((grepl("fs*", hgvsp, fixed = TRUE) == FALSE) & (nchar(native_aa) == (c-1))){
-      return(TRUE)
-    }else{
-      return(FALSE)
-    }
-  }else{
-    return(NA)
-  }
-}
-inframe_insertion_mut_checker_2 = function(native_aa, hgvsp, consequence){
-  #Generate inframe insertion mutants
-  x = hgvsp
-  y = native_aa
-  if (consequence == "inframe_insertion"){
-    if (!(is.na(native_aa))&!(is.na(hgvsp))&!(is.na(consequence))){
-      if (grepl("delins", x, fixed = TRUE)){
-        x = strsplit(x, "delins")[[1]][1]
-        c1 = substr(x, 2, nchar(x))
-        c1 = as.numeric(c1)
-        a = substr(hgvsp, 1, 1)
-        if (a == substr(native_aa, c1, c1)){
-          return(TRUE)
-        }else{
-          return(FALSE)
-        }
-      }else if(grepl("ins", x, fixed = TRUE)){
-        pos = range_identifier("ins", x)
-        ins = strsplit(x, "ins")[[1]][2]
-        l = nchar(ins)
-        if (ins == substr(y, pos[1]+1, (pos[1]+l))){
-          return(TRUE)
-        }else{
-          return(FALSE)
-        }
-      }else if(grepl("du", x, fixed = TRUE)){
-        if (grepl("_", x, fixed = TRUE)==TRUE){
-          pos = range_identifier("du", x)
-          ins = strsplit(x, "du")[[1]][1]
-          a = strsplit(ins, "_", fixed = TRUE)[[1]]
-          a1 = substr(a[1], 1, 1)
-          a2 = substr(a[2], 1, 1)
-          dup = substring(y, pos[1], pos[2])
-          l = pos[2] - pos[1] + 1
-          
-          if ((a1 == substr(y, pos[1], pos[1]))&(a2 == substr(y, pos[2], pos[2]))&(a1 == substr(y, pos[1]+l, pos[1]+l))&(a2 == substr(y, pos[2]+l, pos[2]+l))){
+Validation_checker_2 <- function(hgvsp, WT_seq, Var_seq){
+  #generates variant sequences for missense, stop_gained, inframe_deletion, 
+  #inframe_insertion mutation consequences
+  if((!(is.na(hgvsp))) & (!(is.na(WT_seq))) & (!(is.na(Var_seq)))){
+    if((!(grepl("?", hgvsp, fixed = T)))){
+      WT_seq = paste(WT_seq, "*", sep="")
+      Var_seq = paste(Var_seq, "*", sep="")
+      if(grepl("delins", hgvsp)){
+        if(grepl("_", hgvsp)){
+          #delins range of residues
+          x = strsplit(hgvsp, split = "delins")[[1]]
+          ins_residues = x[2]
+          del_region = strsplit(x[1], split = "_")[[1]]
+          l1 = nchar(del_region[1])
+          l2 = nchar(del_region[2])
+          position1 = as.numeric(substr(del_region[1], start = 2, l1))
+          position2 = position1 + nchar(ins_residues) - 1
+          if((substr(Var_seq, position1, position2) == ins_residues)){
             return(TRUE)
           }else{
             return(FALSE)
           }
-        }else if(grepl("_", x, fixed = TRUE)==FALSE){
-          pos = strsplit(x, "du", fixed=TRUE)[[1]][1]
-          pos = as.numeric(substr(pos, 2, nchar(pos)))
-          a = substr(x, 1, 1)
-          
-          if((a == substr(y, pos+1, pos+1)) & (a == substr(y, pos, pos))){
+        }else{
+          #delins single of residues
+          x = strsplit(hgvsp, split = "delins")[[1]]
+          ins_residues = x[2]
+          del_region = x[1]
+          l1 = nchar(del_region)
+          position1 = as.numeric(substr(del_region, start = 2, l1))
+          position2 = position1 + nchar(ins_residues) - 1
+          if((substr(Var_seq, position1, position2) == ins_residues)){
             return(TRUE)
           }else{
             return(FALSE)
           }
         }
+      }else if(grepl("del", hgvsp)){
+        return(TRUE)
+      }else if(grepl("ins", hgvsp)){
+        #ins range of residues
+        x = strsplit(hgvsp, split = "ins")[[1]]
+        ins_region = strsplit(x[1], split = "_")[[1]]
+        ins_residues = x[2]
+        l1 = nchar(ins_region[1])
+        position1 = as.numeric(substr(ins_region[1], start = 2, l1))
+        position2 = position1 + nchar(ins_residues) - 1
+        if((substr(Var_seq, position1, position2) == ins_residues)){
+          return(TRUE)
+        }else{
+          return(FALSE)
+        }
+      }else if(grepl("du", hgvsp)){
+        if(grepl("_", hgvsp)){
+          #dup over range of residues
+          x = strsplit(hgvsp, split = "du")[[1]]
+          dup_region = strsplit(x[1], split = "_")[[1]]
+          l1 = nchar(dup_region[1])
+          l2 = nchar(dup_region[2])
+          position1 = as.numeric(substr(dup_region[1], start = 2, l1))
+          position2 = as.numeric(substr(dup_region[2], start = 2, l2))
+          residue1 = substr(dup_region[1], start = 1, 1)
+          residue2 = substr(dup_region[2], start = 1, 1)
+          dup = substr(WT_seq, position1, position2)
+          dup = paste(dup, dup, sep="")
+          position2 = position1 + nchar(dup) - 1
+          if((substr(Var_seq, position1, position2) == dup)){
+            return(TRUE)
+          }else{
+            return(FALSE)
+          }
+        }else{
+          #dup of single residue
+          dup_region = strsplit(hgvsp, split = "du")[[1]][1]
+          l1 = nchar(dup_region[1])
+          position1 = as.numeric(substr(dup_region[1], start = 2, l1))
+          residue1 = substr(dup_region[1], start = 1, 1)
+          dup = paste(residue1, residue1, sep="")
+          position2 = position1 + 1
+          if(substr(Var_seq, position1, position2) == dup){
+            return(TRUE)
+          }else{
+            return(FALSE)
+          }
+        }
+      }else if(grepl("fs", hgvsp)){
+        shift = strsplit(hgvsp, "fs")[[1]]
+        l = nchar(shift[1])
+        position1 = as.numeric(substr(shift[1], 2, l-1))
+        residue2 = substr(shift[1], l, l)
+        if(substr(Var_seq, position1, position1) == residue2){
+          if(!(is.na(shift[2]))){
+            l2 = as.numeric(strsplit(shift[2], split = "*", fixed = T)[[1]][2])
+            l_var = position1 + l2 - 1
+            if(nchar(Var_seq) == l_var){
+              return(TRUE)
+            }else{
+              return(FALSE)
+            }
+          }else{
+            return(TRUE)
+          }
+        }else{
+          return(FALSE)
+        }
+      }else if(grepl("ext", hgvsp)){
+        shift = strsplit(hgvsp, "ext")[[1]]
+        l = nchar(shift[1])
+        position1 = as.numeric(substr(shift[1], 2, l-1))
+        residue2 = substr(shift[1], l, l)
+        if(substr(Var_seq, position1, position1) == residue2){
+          if(!(is.na(shift[2]))){
+            l2 = as.numeric(strsplit(shift[2], split = "*", fixed = T)[[1]][2])
+            l_var = position1 + l2
+            if(nchar(Var_seq) == l_var){
+              return(TRUE)
+            }else{
+              return(FALSE)
+            }
+          }else{
+            return(TRUE)
+          }
+        }else{
+          return(FALSE)
+        }
+      }else{
+        #sub one residue with another
+        l = nchar(hgvsp)
+        position = as.numeric(substr(hgvsp, 2, l-1))
+        residue1 = substr(hgvsp, l, l)
+        if(substr(Var_seq, position, position) == residue1){
+          return(TRUE)
+        }else{
+          return(FALSE)
+        }
       }
     }else{
       return(NA)
     }
-  }
-}
-stop_lost_mut_checker_2 = function(native_aa, hgvsp, consequence){
-  if ((consequence == "stop_lost")&(!(is.na(native_aa)))&(!(is.na(hgvsp)))){
-    c = strsplit(hgvsp, "ext")[[1]][1]
-    c1 = substr(c, 2, nchar(c)-1)
-    c1 = as.numeric(c1)
-    a = substr(c, nchar(c), nchar(c))
-    if(a == substr(native_aa, c1, c1)){
-      return(TRUE)
-    }else{
-      return(FALSE)
-    }
   }else{
+    #no hgvsp entered, or no WT sequence
     return(NA)
   }
 }
 
 #Mutant peptide generation
-MSIF_pep_generator <- function(consequence, protseq, aachng, return="All"){
-  #Generate missense mutant tryptic peptides
-  if (!(is.na(consequence)) & !(is.na(protseq)) & !(is.na(aachng))){
-    #if ((grepl("X", protseq) == FALSE) & (grepl("U", protseq) == FALSE) & (grepl("*", protseq, fixed = T) == FALSE)){
-      if (consequence == "missense_variant") {
-        x = aachng
-        l = nchar(x)
-        c = substr(x, 2, l-1)
-        c = as.numeric(c)
-        y = protseq
-        df3 = trypsin(y, TRUE, TRUE, FALSE)
-        
-        for (i in 1:nrow(df3)){ 
-          start = df3$start[i]
-          stop = df3$stop[i]
-          if (between(c, start, stop)){
-            pep = df3$peptide[i]
-            All = c(pep,start,stop)
-            if (return == "peptide"){
-              return(pep)
-            }else if (return == "All"){
-              return(All) 
-            }
-          }
+MSIIFS_pep_generator <- function(hgvsp, Var_seq, return="All"){
+  #generates variant sequences for missense, stop_gained, inframe_deletion, 
+  #inframe_insertion mutation consequences
+  if((!(is.na(hgvsp))) & (!(is.na(Var_seq)))){
+    Var_seq = paste(Var_seq, "*", sep = "")
+    if(grepl("delins", hgvsp)){
+      if(grepl("_", hgvsp)){
+        #delins range of residues
+        x = strsplit(hgvsp, split = "delins")[[1]]
+        del_region = strsplit(x[1], split = "_")[[1]]
+        l1 = nchar(del_region[1])
+        l2 = nchar(del_region[2])
+        position1 = as.numeric(substr(del_region[1], start = 2, l1))
+      }else{
+        #delins single of residues
+        x = strsplit(hgvsp, split = "delins")[[1]]
+        del_region = x[1]
+        l1 = nchar(del_region)
+        position1 = as.numeric(substr(del_region, start = 2, l1))
+      }
+    }else if(grepl("del", hgvsp)){
+      if(grepl("_",  hgvsp)){
+        #del range of residues
+        x = strsplit(hgvsp, split = "del")[[1]]
+        del_region = strsplit(x[1], split = "_")[[1]]
+        l1 = nchar(del_region[1])
+        l2 = nchar(del_region[2])
+        position1 = as.numeric(substr(del_region[1], start = 2, l1))
+      }else{
+        #del single residue
+        del_region = strsplit(hgvsp, split = "del")[[1]][1]
+        l1 = nchar(del_region)
+        position1 = as.numeric(substr(del_region, start = 2, l1))
+      }
+    }else if(grepl("ins", hgvsp)){
+      #ins range of residues
+      x = strsplit(hgvsp, split = "ins")[[1]]
+      ins_region = strsplit(x[1], split = "_")[[1]]
+      l1 = nchar(ins_region[1])
+      position1 = as.numeric(substr(ins_region[1], start = 2, l1))
+    }else if(grepl("du", hgvsp)){
+      if(grepl("_", hgvsp)){
+        #dup over range of residues
+        x = strsplit(hgvsp, split = "du")[[1]]
+        dup_region = strsplit(x[1], split = "_")[[1]]
+        l1 = nchar(dup_region[1])
+        position1 = as.numeric(substr(dup_region[1], start = 2, l1))
+      }else{
+        #dup of single residue
+        dup_region = strsplit(hgvsp, split = "du")[[1]][1]
+        l1 = nchar(dup_region[1])
+        position1 = as.numeric(substr(dup_region[1], start = 2, l1))
+      }
+    }else if(grepl("fs", hgvsp)){
+      shift = strsplit(hgvsp, "fs")[[1]]
+      l = nchar(shift[1])
+      position1 = as.numeric(substr(shift[1], 2, l-1))
+    }else if(grepl("ext", hgvsp)){
+      shift = strsplit(hgvsp, "ext")[[1]]
+      l = nchar(shift[1])
+      position1 = as.numeric(substr(shift[1], 2, l-1))
+    }else{
+      #sub one residue with another
+      l = nchar(hgvsp)
+      position1 = as.numeric(substr(hgvsp, 2, l-1))
+    }
+    df3 = trypsin(Var_seq, TRUE, TRUE, FALSE)
+    pep=NA
+    All=NULL
+    for (i in 1:nrow(df3)){ 
+      start = df3$start[i]
+      stop = df3$stop[i]
+      if (between(position1, start, stop)){
+        pep = df3$peptide[i]
+        All = c(pep,start,stop)
+        break
+      }
+    }
+    #returns peptide
+    if (return == "peptide"){
+      if(!(is.na(pep))){
+        if(grepl("*", pep, fixed = T)){
+          #check if stops introduced and trim
+          pep = strsplit(pep, split = "*", fixed = T)[[1]][1]
         }
-      }else if (consequence == "stop_gained") {
-        #Generate stop gained mutant tryptic peptides
-        x = aachng
-        l = nchar(x)
-        c = substr(x, 2, l-1)
-        c = as.numeric(c)
-        c = c-1
-        y = protseq
-        df3 = trypsin(y, TRUE, TRUE, FALSE)
-        for (i in 1:nrow(df3)){ 
-          start = df3$start[i]
-          stop = df3$stop[i]
-          if (between(c, start, stop)){
-            pep = df3$peptide[i]
-            All = c(pep,start,stop)
-            if (return == "peptide"){
-              return(pep)
-            }else if (return == "All"){
-              return(All) 
-            }
-          }
-        }
-      }else if (consequence == "inframe_deletion") {
-        #Generate inframe deletion mutant tryptic peptides
-        x <- aachng
-        if (grepl("_", x) == FALSE){
-          y = protseq
-          l = nchar(x)
-          c = substr(x, 2, l-3)
-          c = as.numeric(c)
-          df3 = trypsin(y, TRUE, TRUE, FALSE)
-          for (i in 1:nrow(df3)){ 
-            start = df3$start[i]
-            stop = df3$stop[i]
-            if (between(c, start, stop)){
-              pep = df3$peptide[i]
-              All = c(pep,start,stop)
-              if (return == "peptide"){
-                return(pep)
-              }else if (return == "All"){
-                return(All) 
-              }
-            }
-          }
-        }else if (grepl("_", x) == TRUE){
-          x = strsplit(x,split='_', fixed=TRUE)
-          x1 = x[[1]][1]
-          x2 = x[[1]][2]
-          l1 = nchar(x1)
-          c1 = substr(x1, 2, l1)
-          c1 = as.numeric(c1)
-          if (grepl("*", x2, fixed=TRUE)){
-            c1 = c1-1
-          }
-          y = protseq
-          df3 = trypsin(y, TRUE, TRUE, FALSE)
-          for (i in 1:nrow(df3)){ 
-            start = df3$start[i]
-            stop = df3$stop[i]
-            if (between(c1, start, stop)){
-              pep = df3$peptide[i]
-              All = c(pep,start,stop)
-              if (return == "peptide"){
-                return(pep)
-              }else if (return == "All"){
-                return(All) 
-              }
-            }
-          }
-        }
-      }else if (consequence == "frameshift_variant") {
-        y <- protseq
-        if (grepl("Error", y) == FALSE){
-          newaa <- strsplit(aachng,split='f', fixed=TRUE)
-          newaa = newaa[[1]][1]
-          l = nchar(newaa)
-          aa = substr(newaa, l, l)
-          c = as.numeric(substr(newaa, 2, l-1))
-          if(grepl("delins", newaa)){
-            newaa = strsplit(newaa, "delins")[[1]]
-            aa = substr(newaa[2], 1, 1)
-            c = as.numeric(substr(newaa[1], 2, l))
-          }
-          df3 = trypsin(y, TRUE, TRUE, FALSE)
-          for (i in 1:nrow(df3)){ 
-            start = df3$start[i]
-            stop = df3$stop[i]
-            if (aa != "*"){
-              if (between(c, start, stop)){
-                pep = df3$peptide[i]
-                All = c(pep,start,stop)
-                if (return == "peptide"){
-                  return(pep)
-                }else if (return == "All"){
-                  return(All) 
-                }
-              }
-            }else if (aa == "*"){
-              if (between((c-1), start, stop)){
-                pep = df3$peptide[i]
-                All = c(pep,start,stop)
-                if (return == "peptide"){
-                  return(pep)
-                }else if (return == "All"){
-                  return(All) 
-                }
-              }
-            }
-          }
-        }
-      }else if (consequence == "stop_lost"){
-        x = aachng
-        c = strsplit(x, "ext")[[1]][1]
-        l = nchar(c)
-        c = substr(c, 2, l-1)
-        c = as.numeric(c)-1
-        y = protseq
-        df3 = trypsin(y, TRUE, TRUE, FALSE)
-        for (i in 1:nrow(df3)){ 
-          start = df3$start[i]
-          stop = df3$stop[i]
-          if (between(c, start, stop)){
-            pep = df3$peptide[i]
-            All = c(pep,start,stop)
-            if (return == "peptide"){
-              return(pep)
-            }else if (return == "All"){
-              return(All) 
-            }
-          }
-        }
-      }else if(consequence == "inframe_insertion"){
-        x <- aachng
-        y = protseq
-        
-        if (grepl("_", x) == FALSE){
-          if (grepl("du", x) == TRUE){
-            c = strsplit(x, "du")[[1]][1]
-            l = nchar(c)
-            c = substr(c, 2, l)
-            c = as.numeric(c)+1
-            
-          }else if (grepl("delins", x) == TRUE){
-            c = strsplit(x, "delins")
-            l=nchar(c[[1]][1])
-            if(grepl("*", c[[1]][2], fixed=TRUE)){
-              loc = regexpr("*", c[[1]][2], fixed = TRUE)[1]
-              if (loc == 1){
-                c = substr(c[[1]][1], 2, l)
-                c = as.numeric(c)-1
-              }else if(loc >1){
-                c = substr(c[[1]][1], 2, l)
-                c = as.numeric(c)
-              }
-            }else{
-              c = substr(c[[1]][1], 2, l)
-              c = as.numeric(c)
-            }
-          }
-          df3 = trypsin(y, TRUE, TRUE, FALSE)
-          for (i in 1:nrow(df3)){ 
-            start = df3$start[i]
-            stop = df3$stop[i]
-            if (between(c, start, stop)){
-              pep = df3$peptide[i]
-              All = c(pep,start,stop)
-              if (return == "peptide"){
-                return(pep)
-              }else if (return == "All"){
-                return(All) 
-              }
-            }
-          }
-        }else if (grepl("_", x) == TRUE){
-          c = strsplit(x,split='_', fixed=TRUE)
-          if (grepl("du", c[[1]][2])){
-            c = c[[1]][2]
-            c = strsplit(c, "du")[[1]][1]
-            l = nchar(c)
-            c = substr(c, 2, l)
-            c = as.numeric(c)+1
-          }else if(grepl("ins", c[[1]][2], fixed=TRUE)){
-            c = c[[1]][2]
-            c = strsplit(c, "ins")[[1]][1]
-            l = nchar(c)
-            c = substr(c, 2, l)
-            c = as.numeric(c)
-          }
-          df3 = trypsin(y, TRUE, TRUE, FALSE)
-          for (i in 1:nrow(df3)){ 
-            start = df3$start[i]
-            stop = df3$stop[i]
-            if (between(c, start, stop)){
-              pep = df3$peptide[i]
-              All = c(pep,start,stop)
-              if (return == "peptide"){
-                return(pep)
-              }else if (return == "All"){
-                return(All) 
-              }
-            }
-          }
-        }
+        return(pep)
       }else{
         return(NA)
       }
-    # }else{
-    #   return(NA)
-    # }
+    }else if (return == "All"){
+      if(length(All) != 0){
+        if(grepl("*", All[1], fixed = T)){
+          #check if stops introduced and trim
+          All[1] = strsplit(All[1], split = "*", fixed = T)[[1]][1]
+        }
+        return(All) 
+      }else{
+        return(NA)
+      }
+    }
   }else{
+    #no hgvsp entered, or no WT sequence
     return(NA)
   }
 }
@@ -1482,7 +1323,7 @@ MSIF_pep_generator <- function(consequence, protseq, aachng, return="All"){
 #Trypsin
 trypsin = function(sequence, simple_digestion=TRUE, with_location=FALSE, with_efficiency=FALSE){
   sequence2 = sequence
-  ignore = c("KP", "RP")
+  ignore = c("KP", "RP", "K*", "R*")
   splits = c("K", "R")
   if (simple_digestion == TRUE){
     for (r in ignore){
@@ -1735,10 +1576,11 @@ Human_proteome_retriever <- function(){
 Human_proteome_checker <- function(Table, Mutant_peptides, Reference_peptides, 
                                    Passed, Allowance, Peptide_type){
   check <- rep(FALSE, nrow(Table))
-  for (n in 1:nrow(Table)){
+  index = which(Passed == TRUE)
+  for (n in index){
     print(n)
-    if (!(is.na(Mutant_peptides[n])) & !(is.na(Allowance[n])) & (Passed[n] == TRUE)){
-      if (length(grep(TRUE, (Mutant_peptides[n] == Reference_peptides))) <= Allowance[n]){
+    if (!(is.na(Mutant_peptides[n])) & !(is.na(Allowance[n]))){
+      if (length(which(Mutant_peptides[n] == Reference_peptides)) <= Allowance[n]){
         check[n] = TRUE 
       }
     }
@@ -2082,6 +1924,7 @@ SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_
   
   dfSNP2 = data.frame(dfSNP2, IDs_to_validate=NA, Passed=TRUE)
   for (n in 1:nrow(dfSNP2)){
+    print(n)
     if (!(is.na(dfSNP2$Peptide_start[n])) & !(is.na(dfSNP2$SNP_loc[n]))){
       if (length(dfSNP2$SNP_loc[[n]]) == length(dfSNP2$SNP_id[[n]])){
         index = c()
@@ -2104,6 +1947,7 @@ SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_
   }
   
   for (n in 1:nrow(dfSNP2)){
+    print(n)
     for (g in 1:length(dfSNP2$IDs_to_validate[[n]])){
       if (!(is.na(dfSNP2$IDs_to_validate[[n]][g]))){
         dfSNP2$IDs_to_validate[[n]][g] = strsplit(dfSNP2$IDs_to_validate[[n]][g], "rs")[[1]][2]
@@ -2172,6 +2016,7 @@ SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_
   }
   
   for (n in 1:nrow(dfSNP3)){
+    print(n)
     index = grep(dfSNP3$IDs_to_validate[n], dfSNP2$IDs_to_validate[checklist])
     index1 = checklist[index]
     for (g in index1){
@@ -2184,66 +2029,34 @@ SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_
   Table = data.frame(Table, SNP_filter=dfSNP2$Passed)
   return(Table)
 }
-
-Reference_peptide_curator = function(Table, Peptides_Column){
-  Table = Length_Filter(Table, Peptides_Column, Peptide_type = "Ref", 
-                        Lower_limit = 7, Upper_limit = 25)
-  
-  #Table = N_Term_Gln_Filter(Table, Peptides_Column, Peptide_type = "Ref")
-  
-  # reslist = c("C", "M", "W", "DG", "DP", "NG", "QG", "PPP", "PPG", "SS")
-  # for (n in reslist){
-  #   Table =  Residue_Filter(Table, Peptides_Column, Residue_to_Filter = n,
-  #                           Peptide_type = "Ref")
-  # }
-  
-  Table = data.frame(Table, Passed = FALSE)
-  for (n in 1:nrow(Table)){
-    if ((Table$Ref_Length_Filter[n] == TRUE)){ 
-      # #(Table$Ref_C_Filter[n] == TRUE) & 
-      # (Table$Ref_DG_Filter[n] == TRUE) & 
-      # (Table$Ref_DP_Filter[n] == TRUE) & 
-      # (Table$Ref_M_Filter[n] == TRUE) & 
-      # (Table$Ref_N_Gln_Filter[n] == TRUE) & 
-      # (Table$Ref_NG_Filter[n] == TRUE) & 
-      # (Table$Ref_PPG_Filter[n] == TRUE) & 
-      # (Table$Ref_PPP_Filter[n] == TRUE) &
-      # (Table$Ref_QG_Filter[n] == TRUE) &
-      # (Table$Ref_SS_Filter[n] == TRUE) & 
-      # (Table$Ref_W_Filter[n] == TRUE)){
-      Table$Passed[n] <- TRUE
-    }
-  }
-  
-  index = grep(FALSE, Table$Passed)
-  if (length(index) != 0){
-    Table = Table[-c(index),]
-  }
-  return(Table)
-}
 Reference_peptide_list_generator = function(){
-  # files = list.files(path = "PeptideList/Reference/", pattern = "*.tsv", full.names = TRUE, recursive = FALSE)
-  # peptide_total_table = data.frame()
-  # for (n in files){
-  #   print(n)
-  #   peptide_table = read.table(file = n, sep = '\t', header = TRUE)
-  #   peptide_table = Reference_peptide_curator(Table = peptide_table, 
-  #                                             Peptides_Column = peptide_table$Peptide.Sequence)
-  #   peptide_total_table = rbind(peptide_total_table, peptide_table)
-  # }
+  files = list.files(path = "PeptideList/Reference/", pattern = "*.tsv", full.names = TRUE, recursive = FALSE)
+  peptide_total_table = data.frame()
+  for (n in files){
+    print(n)
+    peptide_table = read.table(file = n, sep = '\t', header = TRUE)
+    # peptide_table = Reference_peptide_curator(Table = peptide_table,
+    #                                           Peptides_Column = peptide_table$Peptide.Sequence)
+    peptide_total_table = rbind(peptide_total_table, peptide_table)
+    rm(peptide_table)
+    gc()
+  }
   
   peptide_table1 = read.table(file = "PeptideList/peptide.tsv", sep = "\t", header = TRUE)
   #peptide_table1 = Reference_peptide_curator(Table = peptide_table1, Peptides_Column = peptide_table1$peptide_sequence)
-  peptide_table1 = peptide_table1[1:8]
+  #peptide_table1 = peptide_table1[1:8]
   
   #GPMdb checker
   #file2 = list.files(path = "PeptideList/", pattern = "*.tsv", full.names = TRUE, recursive = FALSE)
   peptide_table2 = read.table(file = "PeptideList/Homo_sapiens.tsv", sep = '\t', header = TRUE)
   #peptide_table2 = Reference_peptide_curator(peptide_table2, peptide_table2$sequence)
-  peptide_table2 = peptide_table2[1:6]
+  #peptide_table2 = peptide_table2[1:6]
+  
+  peptide_table3 = read.csv(file = "PeptideList/peptide_atlas_peptides.csv", header = T)
   
   #add lists of reference peptides together
-  ref_pep_list = c(peptide_table1$peptide_sequence, peptide_table2$sequence)
+  ref_pep_list = c(peptide_total_table$Peptide.Sequence, peptide_table1$peptide_sequence, 
+                   peptide_table2$sequence, peptide_table3$peptide_sequence)
   ref_pep_list = unique(ref_pep_list)
   return(ref_pep_list)
 }
@@ -3169,7 +2982,885 @@ SNP_filter_V2 = function(Table, Uniprot_ids, pep_start, pep_stop, Passed){
   return(Table)
 }
 ##################################
+
 #Unused
+MSI_seq_generator <- function(consequence, native_aa, aachng){
+  if (!(is.na(consequence))){
+    if (consequence == "missense_variant") {
+      #Generate misense mutant
+      x = aachng
+      l = nchar(x)
+      a = substr(x, 1, 1)
+      b = substr(x, l, l)
+      c = substr(x, 2, l-1)
+      c = as.numeric(c)
+      y = native_aa
+      substr(y, c, c)<-b
+      return(y)
+    }else if (consequence == "stop_gained") {
+      #Generate stop gained mutant
+      x = aachng
+      y = native_aa
+      l = nchar(x)
+      ly = nchar(y)
+      c = substr(x, 2, l-1)
+      c = as.numeric(c)
+      z = substr(y, 1, c-1)
+      return(z)
+    }else if (consequence == "inframe_deletion") {
+      #Generate inframe deletion mutants
+      x = aachng
+      if (grepl("_", x) == FALSE){
+        y = native_aa
+        c1 = strsplit(x, "del")[[1]][1]
+        c1 = substr(c1, 2, nchar(c1))
+        c1 = as.numeric(c1)
+        substr(y, c1, c1)<-" "
+      }else if (grepl("_", x) == TRUE){
+        x = strsplit(x, split = "del", fixed = TRUE)[[1]][1]
+        x = strsplit(x, split='_', fixed=TRUE)
+        x1 = x[[1]][1]
+        x2 = x[[1]][2]
+        l1 = nchar(x1)
+        c1 = substr(x1, 2, l1)
+        c1 = as.numeric(c1)
+        l2 = nchar(x2)
+        c2 = substr(x2, 2, l2)
+        c2 = as.numeric(c2)
+        c4 = c2-c1+1
+        y = native_aa
+        c3 = strrep(" ",c4)
+        substr(y, c1, c2)<-c3
+      }
+      if(grepl("delins", aachng) == TRUE){
+        ins = strsplit(aachng, "delins")[[1]][2]
+        substr(y, c1, c1) <- ins
+        y = gsub(" ", "", y, fixed = TRUE)
+      }else{
+        y = gsub(" ", "", y, fixed = TRUE)
+      }
+      if (grepl("*", y, fixed=TRUE) == TRUE){
+        y = strsplit(y, "*", fixed = TRUE)[[1]][1]
+      }
+      return(y)
+    }else{
+      return(NA)
+    }
+  }else{
+    return(NA)
+  }
+}
+frameshift_seq_generator <- function(cdna, native_aa, hgvsc){
+  if (!(is.na(cdna)) & !(is.na(native_aa)) & !(is.na(hgvsc))){
+    if(grepl("*", hgvsc, fixed = T)){
+      return(NA)
+    }
+    if(grepl("+", hgvsc, fixed = T)){
+      return(NA)
+    }
+    c = hgvsc
+    codna <- cdna
+    rna <- seq_transcribe(as_dna(codna))
+    aaseq <- seq_translate(rna)
+    aaseq <- toString(aaseq[1])
+    aaseq <- strsplit(aaseq,split='*', fixed=TRUE)
+    aaseq <- aaseq[[1]][1]
+    if (aaseq == native_aa){
+      if (grepl('delins', hgvsc, fixed = TRUE)){
+        if (grepl("_", hgvsc, fixed = TRUE) == FALSE){
+          c = strsplit(c, "delins")
+          ins = c[[1]][2]
+          pos = c[[1]][1]
+          pos = as.numeric(pos)
+          substr(codna, pos, pos) <- " "
+          codna = gsub(" ", ins, codna, fixed = TRUE)
+        }else if (grepl("_", hgvsc, fixed = TRUE) == TRUE){
+          c = strsplit(c, "delins")
+          ins = c[[1]][2]
+          pos = c[[1]][1]
+          pos = strsplit(pos, "_", fixed = TRUE)
+          pos1 = as.numeric(pos[[1]][1])
+          pos2 = as.numeric(pos[[1]][2])
+          l = pos2-pos1+1
+          rep = strrep(" ", l)
+          substr(codna, pos1, pos2) <- rep
+          codna = gsub(rep, ins, codna, fixed = TRUE)
+        }
+        rna <- seq_transcribe(as_dna(codna))
+        aaseq <- seq_translate(rna)
+        aaseq <- toString(aaseq[1])
+        x = strsplit(aaseq, split='*', fixed=TRUE)
+        x1 = x[[1]][1]
+        return(x1)
+      }else if (grepl('del', hgvsc, fixed = TRUE)){
+        if (grepl("_", hgvsc) == FALSE){
+          c = strsplit(c, split = "del", fixed = TRUE)[[1]][1]
+          c = as.numeric(c)
+          substr(codna, c, c)<-" "
+          codna <- gsub(" ", "", codna, fixed = TRUE)
+          rna <- seq_transcribe(as_dna(codna))
+          aaseq <- seq_translate(rna)
+          aaseq <- toString(aaseq[1])
+          x = strsplit(aaseq, split='*', fixed=TRUE)
+          x1 = x[[1]][1]
+          return(x1)
+        }else if (grepl("_", hgvsc) == TRUE){
+          c = strsplit(c, split = "del", fixed = TRUE)[[1]][1]
+          c0 = strsplit(c,split='_', fixed=TRUE)
+          c1 = c0[[1]][1]
+          c2 = c0[[1]][2]
+          c1 = as.numeric(c1)
+          c2 = as.numeric(c2)
+          c3 = c2 - c1 + 1
+          c4 = strrep(" ",c3)
+          substr(codna, c1, c2) <- c4
+          codna <- gsub(" ", "", codna, fixed = TRUE)
+          rna <- seq_transcribe(as_dna(codna))
+          aaseq <- seq_translate(rna)
+          aaseq <- toString(aaseq[1])
+          x = strsplit(aaseq,split='*', fixed=TRUE)
+          x1 = x[[1]][1]
+          return(x1)
+        }
+      }else if (grepl('dup', hgvsc, fixed = TRUE)){
+        if(!(grepl("_",hgvsc, fixed = TRUE))){
+          c = strsplit(c, split = "dup", fixed = TRUE)[[1]][1]
+          c = as.numeric(c)
+          d = substr(codna, c, c)
+          d = strrep(d,2)
+          substr(codna, c, c)<-" "
+          codna <- gsub(" ", d, codna, fixed = TRUE)
+          rna <- seq_transcribe(as_dna(codna))
+          aaseq <- seq_translate(rna)
+          aaseq <- toString(aaseq[1])
+          x = strsplit(aaseq,split='*', fixed=TRUE)
+          x1 = x[[1]][1]
+          return(x1)
+        }else if (grepl("_",hgvsc, fixed = TRUE)){
+          c = strsplit(c, split = "dup", fixed = TRUE)[[1]][1]
+          c0 = strsplit(c,split='_', fixed=TRUE)
+          c1 = c0[[1]][1]
+          c2 = c0[[1]][2]
+          c1 = as.numeric(c1)
+          c2 = as.numeric(c2)
+          c3 = c2 - c1 + 1
+          c4 = strrep(" ",c3)
+          d = substr(codna, c1, c2)
+          d = strrep(d,2)
+          substr(codna, c1, c2)<-c4
+          codna <- gsub(c4, d, codna, fixed = TRUE)
+          rna <- seq_transcribe(as_dna(codna))
+          aaseq <- seq_translate(rna)
+          aaseq <- toString(aaseq[1])
+          x = strsplit(aaseq,split='*', fixed=TRUE)
+          x1 = x[[1]][1]
+          return(x1)
+        }
+      }else if (grepl('ins', hgvsc, fixed = TRUE)){
+        c = strsplit(c, split = "ins", fixed = TRUE)[[1]]
+        c0 = strsplit(c[1],split='_', fixed=TRUE)
+        c1 = c0[[1]][1]
+        c2 = c0[[1]][2]
+        c1 = as.numeric(c1)
+        c2 = as.numeric(c2)
+        ins = c[2]
+        start = substr(codna, 1, c1)
+        end = substr(codna, c2, nchar(codna))
+        codna = paste0(start, ins, end, sep = "")
+        rna <- seq_transcribe(as_dna(codna))
+        aaseq <- seq_translate(rna)
+        aaseq <- toString(aaseq[1])
+        x = strsplit(aaseq,split='*', fixed=TRUE)
+        x1 = x[[1]][1]
+        return(x1)
+      }else{
+        return(NA)
+      }
+    }else {
+      "Error:cdna found doesn't match native"
+    }
+  }else{
+    return(NA)
+  }
+}
+stop_lost_seq_generator = function(cdna, hgvsc, consequence){
+  if ((consequence == "stop_lost")&(length(cdna) == 1)){
+    pos = strsplit(hgvsc, ">", fixed = TRUE)
+    x = pos[[1]][2]
+    pos = substr(pos[[1]][1], 1, (nchar(pos[[1]][1])-1))
+    pos = as.numeric(pos)
+    substr(cdna, pos, pos) <- x
+    y <- seq_translate(seq_transcribe(as_dna(cdna)))
+    y <- toString(y)
+    y <- strsplit(y,split='*', fixed=TRUE)[[1]][1]
+    return(y)
+  }else{
+    return(NA)
+  }
+}
+inframe_insertion_seq_generator = function(native_aa, hgvsp, consequence){
+  #Generate inframe insertion mutants
+  x = hgvsp
+  y = native_aa
+  if (consequence == "inframe_insertion"){
+    if (!(is.na(native_aa))&!(is.na(hgvsp))&!(is.na(consequence))){
+      if (grepl("delins", x, fixed = TRUE)){
+        x = strsplit(x, "delins")
+        ins = x[[1]][2]
+        c1 = substr(x[[1]][1], 2, nchar(x[[1]][1]))
+        c1 = as.numeric(c1)
+        substr(y, c1, c1) <- " "
+        y = gsub(" ", ins, y, fixed = TRUE)
+      }else if(grepl("ins", x, fixed = TRUE)){
+        pos = range_identifier("ins", x)
+        ins = strsplit(x, "ins")[[1]][2]
+        y = paste(substring(y, 1, pos[1]),
+                  ins,
+                  substring(y, pos[2], nchar(y)), sep = "")
+      }else if(grepl("du", x, fixed = TRUE)){
+        if (grepl("_", x, fixed = TRUE)==TRUE){
+          pos = range_identifier("du", x)
+          dup = substring(y, pos[1], pos[2])
+          y = paste(substring(y, 1, pos[2]),
+                    dup,
+                    substring(y, pos[2]+1, nchar(y)), sep = "")
+        }else if(grepl("_", x, fixed = TRUE)==FALSE){
+          pos = strsplit(x, "du", fixed=TRUE)[[1]][1]
+          pos = as.numeric(substr(pos, 2, nchar(pos)))
+          dup = substr(y, pos, pos)
+          y = paste(substring(y, 1, pos),
+                    dup,
+                    substring(y, pos+1, nchar(y)), sep = "")
+        }
+      }
+      y = strsplit(y, "*", fixed = TRUE)[[1]][1]
+      return(y)
+    }else{
+      return(NA)
+    }
+  }
+}
+range_identifier = function(type, hgvsp){
+  x = strsplit(hgvsp, split = type, fixed = TRUE)[[1]][1]
+  x = strsplit(x, split='_', fixed=TRUE)
+  x1 = x[[1]][1]
+  x2 = x[[1]][2]
+  x1 = as.numeric(substring(x1, 2, nchar(x1)))
+  x2 = as.numeric(substring(x2, 2, nchar(x2)))
+  return(c(x1,x2))
+}
+
+MSI_mut_checker <- function(consequence, native_aa, aachng){
+  if (!(is.na(consequence))&!(is.na(native_aa))){
+    if (consequence == "missense_variant") {
+      #Generate misense mutant
+      y = native_aa
+      x = aachng
+      l = nchar(x)
+      a = substr(x, 1, 1)
+      c = substr(x, 2, l-1)
+      c = as.numeric(c)
+      if (is.na(c)){
+        return(FALSE)
+      }
+      if (a == substr(y, c, c)){
+        return(TRUE)
+      }else{
+        return(FALSE)
+      }
+    }else if (consequence == "stop_gained") {
+      #Generate stop gained mutant
+      x = aachng
+      y = native_aa
+      l = nchar(x)
+      ly = nchar(y)
+      c = substr(x, 2, l-1)
+      c = as.numeric(c)
+      a = substr(x, 1, 1)
+      if (a == substr(y, c, c)){
+        return(TRUE)
+      }else{
+        return(FALSE)
+      }
+    }else if (consequence == "inframe_deletion") {
+      #Generate inframe deletion mutants
+      x = aachng
+      if (grepl("_", x) == FALSE){
+        y = native_aa
+        c1 = strsplit(x, "del")[[1]][1]
+        c1 = substr(c1, 2, nchar(c1))
+        c1 = as.numeric(c1)
+        a = substr(x, 1,1)
+        if (a == substr(y, c1, c1)){
+          return(TRUE)
+        }else{
+          return(FALSE)
+        }
+      }else if (grepl("_", x) == TRUE){
+        x = strsplit(x, split = "del", fixed = TRUE)[[1]][1]
+        x = strsplit(x, split='_', fixed=TRUE)
+        x1 = x[[1]][1]
+        x2 = x[[1]][2]
+        a1 = substr(x1, 1, 1)
+        a2 = substr(x2, 1, 1)
+        l1 = nchar(x1)
+        c1 = substr(x1, 2, l1)
+        c1 = as.numeric(c1)
+        l2 = nchar(x2)
+        c2 = substr(x2, 2, l2)
+        c2 = as.numeric(c2)
+        y = native_aa
+        if ((a1 == substr(y, c1, c1))&(a2 == substr(y, c2, c2))){
+          return(TRUE)
+        }else{
+          return(FALSE)
+        }
+      }
+    }else{
+      return(NA)
+    }
+  }else{
+    return(NA)
+  }
+}
+frameshift_mut_checker <- function(native_aa, hgvsp, consequence){
+  if (!(is.na(native_aa)) & !(is.na(hgvsp)) & (consequence == "frameshift_variant")){
+    if (!(grepl("delins", hgvsp))){
+      a = substr(hgvsp, 1, 1)
+      c = strsplit(hgvsp, "fs")[[1]][1]
+      c = substr(c, 2, nchar(c)-1)
+      c = as.numeric(c)
+    }else if(grepl("delins", hgvsp)){
+      a = substr(hgvsp, 1, 1)
+      c = strsplit(hgvsp, "delins")[[1]][1]
+      c = substr(c, 2, nchar(c))
+      c = as.numeric(c)
+    }
+    if(a == substr(native_aa, c, c)){
+      return(TRUE)
+    }else{
+      return(FALSE)
+    }
+  }else{
+    return(NA)
+  }
+}
+inframe_insertion_mut_checker = function(native_aa, hgvsp, consequence){
+  #Generate inframe insertion mutants
+  x = hgvsp
+  y = native_aa
+  if (consequence == "inframe_insertion"){
+    if (!(is.na(native_aa))&!(is.na(hgvsp))&!(is.na(consequence))){
+      if (grepl("delins", x, fixed = TRUE)){
+        x = strsplit(x, "delins")[[1]][1]
+        c1 = substr(x, 2, nchar(x))
+        c1 = as.numeric(c1)
+        a = substr(hgvsp, 1, 1)
+        if (a == substr(native_aa, c1, c1)){
+          return(TRUE)
+        }else{
+          return(FALSE)
+        }
+      }else if(grepl("ins", x, fixed = TRUE)){
+        pos = range_identifier("ins", x)
+        ins = strsplit(x, "ins")[[1]][1]
+        a = strsplit(ins, "_", fixed = TRUE)[[1]]
+        a1 = substr(a[1], 1, 1)
+        a2 = substr(a[2], 1, 1)
+        
+        if ((a1 == substr(y, pos[1], pos[1]))&(a2 == substr(y, pos[2], pos[2]))){
+          return(TRUE)
+        }else{
+          return(FALSE)
+        }
+      }else if(grepl("du", x, fixed = TRUE)){
+        if (grepl("_", x, fixed = TRUE)==TRUE){
+          pos = range_identifier("du", x)
+          ins = strsplit(x, "du")[[1]][1]
+          a = strsplit(ins, "_", fixed = TRUE)[[1]]
+          a1 = substr(a[1], 1, 1)
+          a2 = substr(a[2], 1, 1)
+          dup = substring(y, pos[1], pos[2])
+          
+          if ((a1 == substr(y, pos[1], pos[1]))&(a2 == substr(y, pos[2], pos[2]))){
+            return(TRUE)
+          }else{
+            return(FALSE)
+          }
+        }else if(grepl("_", x, fixed = TRUE)==FALSE){
+          pos = strsplit(x, "du", fixed=TRUE)[[1]][1]
+          pos = as.numeric(substr(pos, 2, nchar(pos)))
+          a = substr(x, 1, 1)
+          
+          if(a == substr(y, pos, pos)){
+            return(TRUE)
+          }else{
+            return(FALSE)
+          }
+        }
+      }
+    }else{
+      return(NA)
+    }
+  }
+}
+stop_lost_mut_checker = function(native_aa, hgvsp, consequence){
+  if ((consequence == "stop_lost")&(!(is.na(native_aa)))&(!(is.na(hgvsp)))){
+    c = strsplit(hgvsp, "ext")[[1]][1]
+    c1 = substr(c, 2, nchar(c)-1)
+    c1 = as.numeric(c1)
+    if((nchar(native_aa) == (c1-1))){
+      return(TRUE)
+    }else{
+      return(FALSE)
+    }
+  }else{
+    return(NA)
+  }
+}
+
+MSI_mut_checker_2 <- function(consequence, native_aa, aachng){
+  if (!(is.na(consequence))&!(is.na(native_aa))){
+    if (consequence == "missense_variant") {
+      #Generate misense mutant
+      y = native_aa
+      x = aachng
+      l = nchar(x)
+      a = substr(x, l, l)
+      c = substr(x, 2, l-1)
+      c = as.numeric(c)
+      if (a == substr(y, c, c)){
+        return(TRUE)
+      }else{
+        return(FALSE)
+      }
+    }else if (consequence == "stop_gained") {
+      #Generate stop gained mutant
+      x = aachng
+      y = native_aa
+      l = nchar(x)
+      ly = nchar(y)
+      c = substr(x, 2, l-1)
+      c = as.numeric(c)
+      if (ly == (c-1)){
+        return(TRUE)
+      }else{
+        return(FALSE)
+      }
+    }else if (consequence == "inframe_deletion") {
+      #Generate inframe deletion mutants
+      x = aachng
+      if (grepl("delins", x) == TRUE){
+        x = strsplit(x, split = "delins", fixed = TRUE)
+        d = x[[1]][2]
+        x = x[[1]][1]
+        x = strsplit(x, split='_', fixed=TRUE)
+        x1 = x[[1]][1]
+        x2 = x[[1]][2]
+        a1 = substr(x1, 1, 1)
+        a2 = substr(x2, 1, 1)
+        l1 = nchar(x1)
+        c1 = substr(x1, 2, l1)
+        c1 = as.numeric(c1)
+        l2 = nchar(x2)
+        c2 = substr(x2, 2, l2)
+        c2 = as.numeric(c2)
+        y = native_aa
+        if (d == substr(y, c1, (c1-1+nchar(d)))){
+          return(TRUE)
+        }else{
+          return(FALSE)
+        }
+      }else if(grepl("del", x)){
+        return(TRUE)
+      }
+    }else{
+      return(NA)
+    }
+  }else{
+    return(NA)
+  }
+}
+frameshift_mut_checker_2 <- function(native_aa, hgvsp, consequence){
+  if (!(is.na(native_aa)) & !(is.na(hgvsp)) & (consequence == "frameshift_variant")){
+    if (grepl("?", hgvsp, fixed=TRUE)){
+      return(FALSE)
+    }
+    if(!(grepl("delins", hgvsp))){
+      c = strsplit(hgvsp, "fs*", fixed = TRUE)
+      c2 = as.numeric(c[[1]][2])
+      c = c[[1]][1]
+      d = substr(c, nchar(c), nchar(c))
+      c = substr(c, 2, nchar(c)-1)
+      c = as.numeric(c)
+    }else if (grepl("delins", hgvsp)){
+      c = strsplit(hgvsp, "delins")[[1]]
+      d = strsplit(c[2], "*", fixed=TRUE)[[1]][1]
+      c = substr(c[1], 2, nchar(c))
+      c = as.numeric(c)
+      if(d == substr(native_aa, c, c)){
+        return(TRUE)
+      }else{
+        return(FALSE)
+      }
+    }
+    if((d == substr(native_aa, c, c)) & (nchar(native_aa) == (c+c2-2))){
+      return(TRUE)
+    }else if((grepl("fs*", hgvsp, fixed = TRUE) == FALSE) & (nchar(native_aa) == (c-1))){
+      return(TRUE)
+    }else{
+      return(FALSE)
+    }
+  }else{
+    return(NA)
+  }
+}
+inframe_insertion_mut_checker_2 = function(native_aa, hgvsp, consequence){
+  #Generate inframe insertion mutants
+  x = hgvsp
+  y = native_aa
+  if (consequence == "inframe_insertion"){
+    if (!(is.na(native_aa))&!(is.na(hgvsp))&!(is.na(consequence))){
+      if (grepl("delins", x, fixed = TRUE)){
+        x = strsplit(x, "delins")[[1]][1]
+        c1 = substr(x, 2, nchar(x))
+        c1 = as.numeric(c1)
+        a = substr(hgvsp, 1, 1)
+        if (a == substr(native_aa, c1, c1)){
+          return(TRUE)
+        }else{
+          return(FALSE)
+        }
+      }else if(grepl("ins", x, fixed = TRUE)){
+        pos = range_identifier("ins", x)
+        ins = strsplit(x, "ins")[[1]][2]
+        l = nchar(ins)
+        if (ins == substr(y, pos[1]+1, (pos[1]+l))){
+          return(TRUE)
+        }else{
+          return(FALSE)
+        }
+      }else if(grepl("du", x, fixed = TRUE)){
+        if (grepl("_", x, fixed = TRUE)==TRUE){
+          pos = range_identifier("du", x)
+          ins = strsplit(x, "du")[[1]][1]
+          a = strsplit(ins, "_", fixed = TRUE)[[1]]
+          a1 = substr(a[1], 1, 1)
+          a2 = substr(a[2], 1, 1)
+          dup = substring(y, pos[1], pos[2])
+          l = pos[2] - pos[1] + 1
+          
+          if ((a1 == substr(y, pos[1], pos[1]))&(a2 == substr(y, pos[2], pos[2]))&(a1 == substr(y, pos[1]+l, pos[1]+l))&(a2 == substr(y, pos[2]+l, pos[2]+l))){
+            return(TRUE)
+          }else{
+            return(FALSE)
+          }
+        }else if(grepl("_", x, fixed = TRUE)==FALSE){
+          pos = strsplit(x, "du", fixed=TRUE)[[1]][1]
+          pos = as.numeric(substr(pos, 2, nchar(pos)))
+          a = substr(x, 1, 1)
+          
+          if((a == substr(y, pos+1, pos+1)) & (a == substr(y, pos, pos))){
+            return(TRUE)
+          }else{
+            return(FALSE)
+          }
+        }
+      }
+    }else{
+      return(NA)
+    }
+  }
+}
+stop_lost_mut_checker_2 = function(native_aa, hgvsp, consequence){
+  if ((consequence == "stop_lost")&(!(is.na(native_aa)))&(!(is.na(hgvsp)))){
+    c = strsplit(hgvsp, "ext")[[1]][1]
+    c1 = substr(c, 2, nchar(c)-1)
+    c1 = as.numeric(c1)
+    a = substr(c, nchar(c), nchar(c))
+    if(a == substr(native_aa, c1, c1)){
+      return(TRUE)
+    }else{
+      return(FALSE)
+    }
+  }else{
+    return(NA)
+  }
+}
+MSIF_pep_generator <- function(consequence, protseq, aachng, return="All"){
+  #Generate missense mutant tryptic peptides
+  if (!(is.na(consequence)) & !(is.na(protseq)) & !(is.na(aachng))){
+    #if ((grepl("X", protseq) == FALSE) & (grepl("U", protseq) == FALSE) & (grepl("*", protseq, fixed = T) == FALSE)){
+    if (consequence == "missense_variant") {
+      x = aachng
+      l = nchar(x)
+      c = substr(x, 2, l-1)
+      c = as.numeric(c)
+      y = protseq
+      df3 = trypsin(y, TRUE, TRUE, FALSE)
+      
+      for (i in 1:nrow(df3)){ 
+        start = df3$start[i]
+        stop = df3$stop[i]
+        if (between(c, start, stop)){
+          pep = df3$peptide[i]
+          All = c(pep,start,stop)
+          if (return == "peptide"){
+            return(pep)
+          }else if (return == "All"){
+            return(All) 
+          }
+        }
+      }
+    }else if (consequence == "stop_gained") {
+      #Generate stop gained mutant tryptic peptides
+      x = aachng
+      l = nchar(x)
+      c = substr(x, 2, l-1)
+      c = as.numeric(c)
+      c = c-1
+      y = protseq
+      df3 = trypsin(y, TRUE, TRUE, FALSE)
+      for (i in 1:nrow(df3)){ 
+        start = df3$start[i]
+        stop = df3$stop[i]
+        if (between(c, start, stop)){
+          pep = df3$peptide[i]
+          All = c(pep,start,stop)
+          if (return == "peptide"){
+            return(pep)
+          }else if (return == "All"){
+            return(All) 
+          }
+        }
+      }
+    }else if (consequence == "inframe_deletion") {
+      #Generate inframe deletion mutant tryptic peptides
+      x <- aachng
+      if (grepl("_", x) == FALSE){
+        y = protseq
+        l = nchar(x)
+        c = substr(x, 2, l-3)
+        c = as.numeric(c)
+        df3 = trypsin(y, TRUE, TRUE, FALSE)
+        for (i in 1:nrow(df3)){ 
+          start = df3$start[i]
+          stop = df3$stop[i]
+          if (between(c, start, stop)){
+            pep = df3$peptide[i]
+            All = c(pep,start,stop)
+            if (return == "peptide"){
+              return(pep)
+            }else if (return == "All"){
+              return(All) 
+            }
+          }
+        }
+      }else if (grepl("_", x) == TRUE){
+        x = strsplit(x,split='_', fixed=TRUE)
+        x1 = x[[1]][1]
+        x2 = x[[1]][2]
+        l1 = nchar(x1)
+        c1 = substr(x1, 2, l1)
+        c1 = as.numeric(c1)
+        if (grepl("*", x2, fixed=TRUE)){
+          c1 = c1-1
+        }
+        y = protseq
+        df3 = trypsin(y, TRUE, TRUE, FALSE)
+        for (i in 1:nrow(df3)){ 
+          start = df3$start[i]
+          stop = df3$stop[i]
+          if (between(c1, start, stop)){
+            pep = df3$peptide[i]
+            All = c(pep,start,stop)
+            if (return == "peptide"){
+              return(pep)
+            }else if (return == "All"){
+              return(All) 
+            }
+          }
+        }
+      }
+    }else if (consequence == "frameshift_variant") {
+      y <- protseq
+      if (grepl("Error", y) == FALSE){
+        newaa <- strsplit(aachng,split='f', fixed=TRUE)
+        newaa = newaa[[1]][1]
+        l = nchar(newaa)
+        aa = substr(newaa, l, l)
+        c = as.numeric(substr(newaa, 2, l-1))
+        if(grepl("delins", newaa)){
+          newaa = strsplit(newaa, "delins")[[1]]
+          aa = substr(newaa[2], 1, 1)
+          c = as.numeric(substr(newaa[1], 2, l))
+        }
+        df3 = trypsin(y, TRUE, TRUE, FALSE)
+        for (i in 1:nrow(df3)){ 
+          start = df3$start[i]
+          stop = df3$stop[i]
+          if (aa != "*"){
+            if (between(c, start, stop)){
+              pep = df3$peptide[i]
+              All = c(pep,start,stop)
+              if (return == "peptide"){
+                return(pep)
+              }else if (return == "All"){
+                return(All) 
+              }
+            }
+          }else if (aa == "*"){
+            if (between((c-1), start, stop)){
+              pep = df3$peptide[i]
+              All = c(pep,start,stop)
+              if (return == "peptide"){
+                return(pep)
+              }else if (return == "All"){
+                return(All) 
+              }
+            }
+          }
+        }
+      }
+    }else if (consequence == "stop_lost"){
+      x = aachng
+      c = strsplit(x, "ext")[[1]][1]
+      l = nchar(c)
+      c = substr(c, 2, l-1)
+      c = as.numeric(c)-1
+      y = protseq
+      df3 = trypsin(y, TRUE, TRUE, FALSE)
+      for (i in 1:nrow(df3)){ 
+        start = df3$start[i]
+        stop = df3$stop[i]
+        if (between(c, start, stop)){
+          pep = df3$peptide[i]
+          All = c(pep,start,stop)
+          if (return == "peptide"){
+            return(pep)
+          }else if (return == "All"){
+            return(All) 
+          }
+        }
+      }
+    }else if(consequence == "inframe_insertion"){
+      x <- aachng
+      y = protseq
+      
+      if (grepl("_", x) == FALSE){
+        if (grepl("du", x) == TRUE){
+          c = strsplit(x, "du")[[1]][1]
+          l = nchar(c)
+          c = substr(c, 2, l)
+          c = as.numeric(c)+1
+          
+        }else if (grepl("delins", x) == TRUE){
+          c = strsplit(x, "delins")
+          l=nchar(c[[1]][1])
+          if(grepl("*", c[[1]][2], fixed=TRUE)){
+            loc = regexpr("*", c[[1]][2], fixed = TRUE)[1]
+            if (loc == 1){
+              c = substr(c[[1]][1], 2, l)
+              c = as.numeric(c)-1
+            }else if(loc >1){
+              c = substr(c[[1]][1], 2, l)
+              c = as.numeric(c)
+            }
+          }else{
+            c = substr(c[[1]][1], 2, l)
+            c = as.numeric(c)
+          }
+        }
+        df3 = trypsin(y, TRUE, TRUE, FALSE)
+        for (i in 1:nrow(df3)){ 
+          start = df3$start[i]
+          stop = df3$stop[i]
+          if (between(c, start, stop)){
+            pep = df3$peptide[i]
+            All = c(pep,start,stop)
+            if (return == "peptide"){
+              return(pep)
+            }else if (return == "All"){
+              return(All) 
+            }
+          }
+        }
+      }else if (grepl("_", x) == TRUE){
+        c = strsplit(x,split='_', fixed=TRUE)
+        if (grepl("du", c[[1]][2])){
+          c = c[[1]][2]
+          c = strsplit(c, "du")[[1]][1]
+          l = nchar(c)
+          c = substr(c, 2, l)
+          c = as.numeric(c)+1
+        }else if(grepl("ins", c[[1]][2], fixed=TRUE)){
+          c = c[[1]][2]
+          c = strsplit(c, "ins")[[1]][1]
+          l = nchar(c)
+          c = substr(c, 2, l)
+          c = as.numeric(c)
+        }
+        df3 = trypsin(y, TRUE, TRUE, FALSE)
+        for (i in 1:nrow(df3)){ 
+          start = df3$start[i]
+          stop = df3$stop[i]
+          if (between(c, start, stop)){
+            pep = df3$peptide[i]
+            All = c(pep,start,stop)
+            if (return == "peptide"){
+              return(pep)
+            }else if (return == "All"){
+              return(All) 
+            }
+          }
+        }
+      }
+    }else{
+      return(NA)
+    }
+    # }else{
+    #   return(NA)
+    # }
+  }else{
+    return(NA)
+  }
+}
+Reference_peptide_curator = function(Table, Peptides_Column){
+  Table = Length_Filter(Table, Peptides_Column, Peptide_type = "Ref", 
+                        Lower_limit = 7, Upper_limit = 25)
+  
+  #Table = N_Term_Gln_Filter(Table, Peptides_Column, Peptide_type = "Ref")
+  
+  # reslist = c("C", "M", "W", "DG", "DP", "NG", "QG", "PPP", "PPG", "SS")
+  # for (n in reslist){
+  #   Table =  Residue_Filter(Table, Peptides_Column, Residue_to_Filter = n,
+  #                           Peptide_type = "Ref")
+  # }
+  
+  Table = data.frame(Table, Passed = FALSE)
+  for (n in 1:nrow(Table)){
+    if ((Table$Ref_Length_Filter[n] == TRUE)){ 
+      # #(Table$Ref_C_Filter[n] == TRUE) & 
+      # (Table$Ref_DG_Filter[n] == TRUE) & 
+      # (Table$Ref_DP_Filter[n] == TRUE) & 
+      # (Table$Ref_M_Filter[n] == TRUE) & 
+      # (Table$Ref_N_Gln_Filter[n] == TRUE) & 
+      # (Table$Ref_NG_Filter[n] == TRUE) & 
+      # (Table$Ref_PPG_Filter[n] == TRUE) & 
+      # (Table$Ref_PPP_Filter[n] == TRUE) &
+      # (Table$Ref_QG_Filter[n] == TRUE) &
+      # (Table$Ref_SS_Filter[n] == TRUE) & 
+      # (Table$Ref_W_Filter[n] == TRUE)){
+      Table$Passed[n] <- TRUE
+    }
+  }
+  
+  index = grep(FALSE, Table$Passed)
+  if (length(index) != 0){
+    Table = Table[-c(index),]
+  }
+  return(Table)
+}
 expasy_digestion_efficiency_check_OLD = function(Table, peptide_column, sequence_column, 
                                                  passed_column, min_efficiency, label){
   #Get html data from expasy
