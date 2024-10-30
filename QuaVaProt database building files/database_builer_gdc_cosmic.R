@@ -646,15 +646,11 @@ dbExecute(mydb, query_sql)
 query_sql = "CREATE INDEX index_COSMIC_links ON COSMIC_links ([row_names]);"
 dbExecute(mydb, query_sql)
 
-
-
-
 # Remove indexes in needed
 # query_sql = "DROP INDEX index_GDC_short"
 # query = dbExecute(mydb, query_sql)
 # query_sql = "DROP INDEX index_COSMIC_short"
 # query = dbExecute(mydb, query_sql)
-
 
 #add user pass db
 
@@ -667,81 +663,81 @@ query_sql = 'INSERT INTO user_base VALUES ("user1", "pass1", "standard", "email1
 dbExecute(db, query_sql)
 dbDisconnect(db)
 
-query_sql = "DROP TABLE user_base"
-#TESTING
+# query_sql = "DROP TABLE user_base"
+# #TESTING
+
+# # t1 = Sys.time()
+# # ids = search_all_DB_table_cols(mydb, "COSMIC_short", search_term = "braf", col_select = c(1:8,12:15,17,26:29,32:42))
+# # tmp = query_IDs(mydb, "COSMIC_short", ids)
+# # t2 = Sys.time() - t1
+# # t2
+
+# quavaprotdb <- dbConnect(RSQLite::SQLite(), "QuavaProt_full_App/QuavaProt_database.sqlite")
+# dbListTables(mydb)
+
+
+# search_all_DB_table_cols <- function(DB, Table_name, search_term, col_searched, col_returned){
+#   search_term = paste('%', search_term, '%', sep = "")
+#   checklist = colnames(dbGetQuery(DB, paste("SELECT * FROM", Table_name, "WHERE 1=0")))
+#   col_returned = checklist[col_returned]
+#   col_returned = paste(col_returned, collapse = ",")
+#   search_string = paste('SELECT', col_returned, 'FROM', Table_name, 'WHERE')
+#   checklist = checklist[col_searched]
+#   checklist = paste("[", checklist, "] LIKE {search*}", sep = "")
+#   n = paste(checklist, collapse = " OR ")
+#   query_sql = paste(search_string, n)
+#   query_sql <- glue::glue_sql(query_sql,
+#                               search = c(search_term),
+#                               .con = DB)
+#   results = dbGetQuery(DB, query_sql)
+#   return(results)
+# }
+# query_IDs <- function(DB, Table_name, search){
+#   search_string = paste("SELECT * FROM", Table_name, "WHERE row_names={conc_ID*};")
+#   if(length(search) > 999){
+#     results = data.frame()
+#     for (f in seq(1, length(search), 999)){
+#       g = f+998
+#       if (g > length(search)){
+#         g = length(search)
+#       }
+#       query_sql <- glue::glue_sql(search_string,
+#                                   conc_ID = c(search[f:g]),
+#                                   .con = DB)
+#       query_sql = gsub(", ", " OR row_names=", query_sql, fixed = T)
+#       conc_query = dbSendQuery(DB, query_sql)
+#       results1 = dbFetch(conc_query)
+#       results = rbind(results, results1)
+#       dbClearResult(conc_query)
+#     }
+#   }else{
+#     query_sql <- glue::glue_sql(search_string,
+#                                 conc_ID = c(search),
+#                                 .con = DB)
+#     query_sql = gsub(", ", " OR row_names=", query_sql, fixed = T)
+#     conc_query = dbSendQuery(DB, query_sql)
+#     results = dbFetch(conc_query)
+#     dbClearResult(conc_query)
+#   }
+#   return(results)
+# }
+
+# x = colnames(dbGetQuery(mydb, "SELECT * FROM COSMIC_short WHERE 1=0"))
 
 # t1 = Sys.time()
-# ids = search_all_DB_table_cols(mydb, "COSMIC_short", search_term = "braf", col_select = c(1:8,12:15,17,26:29,32:42))
-# tmp = query_IDs(mydb, "COSMIC_short", ids)
-# t2 = Sys.time() - t1
-# t2
+# tmp = search_all_DB_table_cols(quavaprotdb, "GDC_short", "braf", 
+#                                col_searched = c(2,3,5:10,14,15,17,27:29), 
+#                                col_returned = c(1))
+# tmp2 = query_IDs(quavaprotdb, "COSMIC_short", search = "QPCO_1000130782", search_col = "ID")
+# tmp3 = query_IDs(quavaprotdb, "COSMIC_links", search = "130568", search_col = "row_names")
+# Sys.time() - t1
 
-quavaprotdb <- dbConnect(RSQLite::SQLite(), "QuavaProt_full_App/QuavaProt_database.sqlite")
-dbListTables(mydb)
+# x = tmp$row_names
+# x = paste(x, collapse = ",")
+# query_sql <- paste("SELECT * FROM GDC_links WHERE row_names IN (", x, ")", sep="")
 
+# results = dbGetQuery(quavaprotdb, query_sql)
+# results
 
-search_all_DB_table_cols <- function(DB, Table_name, search_term, col_searched, col_returned){
-  search_term = paste('%', search_term, '%', sep = "")
-  checklist = colnames(dbGetQuery(DB, paste("SELECT * FROM", Table_name, "WHERE 1=0")))
-  col_returned = checklist[col_returned]
-  col_returned = paste(col_returned, collapse = ",")
-  search_string = paste('SELECT', col_returned, 'FROM', Table_name, 'WHERE')
-  checklist = checklist[col_searched]
-  checklist = paste("[", checklist, "] LIKE {search*}", sep = "")
-  n = paste(checklist, collapse = " OR ")
-  query_sql = paste(search_string, n)
-  query_sql <- glue::glue_sql(query_sql,
-                              search = c(search_term),
-                              .con = DB)
-  results = dbGetQuery(DB, query_sql)
-  return(results)
-}
-query_IDs <- function(DB, Table_name, search){
-  search_string = paste("SELECT * FROM", Table_name, "WHERE row_names={conc_ID*};")
-  if(length(search) > 999){
-    results = data.frame()
-    for (f in seq(1, length(search), 999)){
-      g = f+998
-      if (g > length(search)){
-        g = length(search)
-      }
-      query_sql <- glue::glue_sql(search_string,
-                                  conc_ID = c(search[f:g]),
-                                  .con = DB)
-      query_sql = gsub(", ", " OR row_names=", query_sql, fixed = T)
-      conc_query = dbSendQuery(DB, query_sql)
-      results1 = dbFetch(conc_query)
-      results = rbind(results, results1)
-      dbClearResult(conc_query)
-    }
-  }else{
-    query_sql <- glue::glue_sql(search_string,
-                                conc_ID = c(search),
-                                .con = DB)
-    query_sql = gsub(", ", " OR row_names=", query_sql, fixed = T)
-    conc_query = dbSendQuery(DB, query_sql)
-    results = dbFetch(conc_query)
-    dbClearResult(conc_query)
-  }
-  return(results)
-}
-
-x = colnames(dbGetQuery(mydb, "SELECT * FROM COSMIC_short WHERE 1=0"))
-
-t1 = Sys.time()
-tmp = search_all_DB_table_cols(quavaprotdb, "GDC_short", "braf", 
-                               col_searched = c(2,3,5:10,14,15,17,27:29), 
-                               col_returned = c(1))
-tmp2 = query_IDs(quavaprotdb, "COSMIC_short", search = "QPCO_1000130782", search_col = "ID")
-tmp3 = query_IDs(quavaprotdb, "COSMIC_links", search = "130568", search_col = "row_names")
-Sys.time() - t1
-
-x = tmp$row_names
-x = paste(x, collapse = ",")
-query_sql <- paste("SELECT * FROM GDC_links WHERE row_names IN (", x, ")", sep="")
-
-results = dbGetQuery(quavaprotdb, query_sql)
-results
-
-x=paste("[", x, "]", sep="")
-paste(x, collapse = ",")
+# x=paste("[", x, "]", sep="")
+# paste(x, collapse = ",")
