@@ -1,11 +1,8 @@
 # QuaVaProt
 
-To run the app, first download the database file and extract to a folder titled "QuavaProt_full_App"
-in the working directory and extract all files here.
-Download link: https://figshare.com/s/93e9bcb3fd4c4513c96b
-
-Then load all functions in the libs_and_functions.R file.
-
-Then run the app.R file.
-
-The other R files (NCI_GDC.R, COSMIC.R, database_builder_gdc_cosmic.R) were used to generate the database.
+To generate the database files for running the quavaprot db app:
+-load all libraries and functions form the libs_and_functions.R file
+-run the NCI_GDC.R script
+-run the COSMIC.R script
+-run the database_builder_gdc_cosmic.R script
+-move the 2 produced sqlite files to the 'data' folder of the db app
