@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  shiny:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shiny-app
+    ports:
+      - "3838:3838"
+    volumes:
+      - ./shiny-app:/srv/shiny-server/
+      - ./data:/srv/shiny-server/data/
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - shiny
