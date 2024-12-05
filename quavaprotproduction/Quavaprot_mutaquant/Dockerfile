@@ -1,3 +1,6 @@
+# Use the rocker/shiny image as a base
+FROM rocker/shiny:latest
+
 # Install necessary system dependencies for R packages
 RUN apt-get update && apt-get install -y \
     libcurl4-openssl-dev \
