@@ -616,8 +616,7 @@ server <- function(input, output, session) {
                         card(
                           style="border:none;",
                           dataTableOutput("kegg_table")
-                        ),
-                        h1("next...")
+                        )
                       )
                     )
                   )
