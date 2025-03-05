@@ -106,7 +106,7 @@ server <- function(input, output, session) {
   #UI
   output$UI_output <- renderUI(
     page_navbar(
-      title = "QuavaProt",
+      title = "Mutaquant",
       id = "Quava_home",
       position = "fixed-top",
       theme = bs_theme(
@@ -186,10 +186,10 @@ server <- function(input, output, session) {
                   style = "background-color:#EFEDEC;padding:25px; border-radius: 10px !important; border: 2px solid;",
                   card(
                     style = "border-radius: 10px",
-                    card_header(h1(strong("QuavaProt:\n MutaQuant Edition")),
+                    card_header(h1(strong("Mutaquant")),
                                 align = "center"),
                     card_body(
-                      h5("Welcome to QuavaProt, a resource centered on predicting and 
+                      h5("Welcome to Mutaquant, a resource centered on predicting and 
                       characterizing peptides containing variations, while providing 
                       adjacent annotations and references, allowing for a streamlined 
                       approach to selecting peptide targets for quantitative proteomic 
