@@ -1597,6 +1597,7 @@ server <- function(input, output, session) {
 #UI
 ui <- mainPanel(
   shinyjs::useShinyjs(),
+  br(),
   uiOutput("UI_output"),
   width = 12
 ) 
