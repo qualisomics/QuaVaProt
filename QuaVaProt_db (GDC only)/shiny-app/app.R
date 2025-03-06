@@ -2107,4 +2107,4 @@ server <- function(input, output, session) {
 }
 
 # Run the app ----
-shinyApp(ui = ui, server = server, options = list(launch.browser = TRUE))
+shinyApp(ui = ui, server = server)
