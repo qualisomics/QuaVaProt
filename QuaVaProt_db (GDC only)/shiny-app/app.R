@@ -159,8 +159,6 @@ ui <-
 # Define server logic ----
 server <- function(input, output, session) {
   
-  #for when users are added without restarting container
-  
   #URL
   shiny_port = reactive(
     session$clientData$url_port
@@ -184,7 +182,7 @@ server <- function(input, output, session) {
   output$UI_output <- 
     renderUI({
       page_navbar(
-          title = "QuavaProt",
+          title = "QuaVaProt",
           id = "Quava_home",
           position = "fixed-top",
           theme = bs_theme(
@@ -300,7 +298,7 @@ server <- function(input, output, session) {
                                     align = "center")
                       },
                       card_body(
-                        h3("QuavaProt is a resource centered on predicting and 
+                        h3("QuaVaProt is a resource centered on predicting and 
                     characterizing peptides containing variations, while providing 
                     adjacent annotations and references, allowing for a streamlined 
                     approach to selecting peptide targets for quantitative proteomic 
@@ -344,40 +342,7 @@ server <- function(input, output, session) {
                 ),
                 width = 12, height = "auto")
             }else{
-              
-              if(FALSE){
-                if(query$page == 'signup'){
-                  shinyjs::hide(id = "login-panel")
-                  mainPanel(
-                    br(),
-                    br(),
-                    width = 12,
-                    fluidRow(
-                      layout_columns(
-                        col_widths = c(-4,4,-4, -4,4,-4),
-                        card(
-                          style = "border-radius: 10px;",
-                          card_header(h1("Sign Up")),
-                          card_body(
-                            textInput(inputId = "new_user", label = "Username", width = '100%'),
-                            textInput(inputId = "new_email", label = "Email", width = '100%'),
-                            textInput(inputId = "new_password1", label = "New Password", width = '100%'),
-                            textInput(inputId = "new_password2", label = "Verify Password", width = '100%'),
-                            actionButton(inputId = "submit_new_user", label = "Submit", width = '100px'),
-                            class = "align-items-center"
-                          )
-                        ),
-                        card(
-                          style = "border: none; color:red;",
-                          textOutput("signup_errors")
-                        )
-                      )
-                    )
-                  )
-                }else{
-
-                }
-              }else if(TRUE){
+              if(TRUE){
                 if(query$page=="results"){
                   mainPanel(
                     tags$style(HTML('table.dataTable tr.selected td, 
@@ -503,7 +468,6 @@ server <- function(input, output, session) {
                       )
                     ),
                     width = 12)
-                  
                   
                 }else if(query$page=="Peptide"){
                   mainPanel(
