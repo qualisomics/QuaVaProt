@@ -206,6 +206,15 @@ server <- function(input, output, session) {
               title = ""
             )
           ),
+          nav_item(
+            tags$a(
+              icon("circle-info"),
+              strong("Help"),
+              height = 40,
+              href = "?page=help",
+              title = ""
+            )
+          ),
           nav_spacer(),
             nav_menu(
               title = "Change Dataset",
@@ -291,10 +300,10 @@ server <- function(input, output, session) {
                     card(
                       style = "border-radius: 10px;",
                       if(query$data_set=="GDC"){
-                        card_header(h1(strong("QuavaProt: NCI-GDC")),
+                        card_header(h1(strong("QuaVaProt: NCI-GDC")),
                                     align = "center")
                       }else if(query$data_set=="COSMIC"){
-                        card_header(h1(strong("QuavaProt: COSMIC")),
+                        card_header(h1(strong("QuaVaProt: COSMIC")),
                                     align = "center")
                       },
                       card_body(
@@ -619,7 +628,34 @@ server <- function(input, output, session) {
                       )
                     )
                   )
+                }else if (query$page == "help"){
+                  mainPanel(
+                    width = 12,
+                    br(),
+                    fluidRow(
+                      style = "padding-top: 40px;",
+                      layout_columns(
+                        col_widths = c(12, 12, 2, -10),
+                        row_heights = c("auto", "auto"),
+                        
+                        h1("Help"),
+
+                        h4("For a short tutorial on the using QuaVaProt, see the presentation below.", 
+                           style = "margin: 0; padding: 0;"),
+                        
+                        downloadButton("help_ppt", label = "Download Presenation"),
+                        
+                        br(),
+                        
+                        h1("Version"),
+                        
+                        h4("Last Updated: 2025-04-11")
+                        
+                      )
+                    )
+                  )
                 }else{
+                  br()
                   mainPanel(
                     width = 12,
                     column(12,
@@ -806,19 +842,19 @@ server <- function(input, output, session) {
             layout_columns(
               col_widths = c(4,4,4),
               checkboxGroupInput("filter_results1", label = NULL,inline = F,
-                                 choiceNames = c("Canonical_check", "Unique_check_1", "Unique_check_2", "Isoform_check", 
-                                                 "PTM_filter", "Cleave_site_filter", "In_Main_Chain",
-                                                 "SNP_filter", "Peptide_Exists_Filter"),
+                                 choiceNames = c("Canonical Check", "Variant unique(vs WT)", "WT Unique(VS variant)", "Isoform check", 
+                                                 "PTM filter", "Cleave site filter", "Main Chain",
+                                                 "SNP filter", "Peptide observed previously"),
                                  choiceValues = c("Canonical_check", "Unique_check_1", "Unique_check_2", "Isoform_check", 
                                                   "PTM_filter", "Cleave_site_filter", "In_Main_Chain",
                                                   "SNP_filter", "Peptide_Exists_Filter"),
                                  selected = peptide_filter_checkbox_selected1$values
               ),
               checkboxGroupInput("filter_results2", label = NULL,inline = F,
-                                 choiceNames = c("Mutant_Length_Filter", "Mutant_N_Gln_Filter", "Mutant_C_Filter",
-                                                 "Mutant_M_Filter", "Mutant_W_Filter", "Mutant_DG_Filter", "Mutant_DP_Filter", "Mutant_NG_Filter",
-                                                 "Mutant_QG_Filter", "Mutant_PPP_Filter", "Mutant_PPG_Filter", "Mutant_SS_Filter","Mutant_Unique_in_Proteome",
-                                                 "Mutant_dig_efficiency_filter"),
+                                 choiceNames = c("Variant Length Filter", "Variant N-Gln Filter", "Variant C Filter",
+                                                 "Variant M Filter", "Variant W Filter", "Variant DG Filter", "Variant DP Filter", "Variant NG Filter",
+                                                 "Variant QG Filter", "Variant PPP Filter", "Variant PPG Filter", "Variant Serine string Filter","Variant Unique(vs Proteome)",
+                                                 "Variant digestion efficiency filter"),
                                  choiceValues = c("Mutant_Length_Filter", "Mutant_N_Gln_Filter", "Mutant_C_Filter",
                                                   "Mutant_M_Filter", "Mutant_W_Filter", "Mutant_DG_Filter", "Mutant_DP_Filter", "Mutant_NG_Filter",
                                                   "Mutant_QG_Filter", "Mutant_PPP_Filter", "Mutant_PPG_Filter", "Mutant_SS_Filter","Mutant_Unique_in_Proteome",
@@ -826,10 +862,10 @@ server <- function(input, output, session) {
                                  selected = peptide_filter_checkbox_selected2$values
               ),
               checkboxGroupInput("filter_results3", label = NULL,inline = F,
-                                 choiceNames = c("Native_Length_Filter", "Native_N_Gln_Filter", "Native_C_Filter", "Native_M_Filter", 
-                                                 "Native_W_Filter", "Native_DG_Filter", "Native_DP_Filter", "Native_NG_Filter", 
-                                                 "Native_QG_Filter", "Native_PPP_Filter", "Native_PPG_Filter", "Native_SS_Filter",
-                                                 "Native_Unique_in_Proteome", "Native_dig_efficiency_filter"),
+                                 choiceNames = c("WT Length Filter", "WT N-Gln Filter", "WT C Filter", "WT M Filter", 
+                                                 "WT W Filter", "WT DG Filter", "WT DP Filter", "WT NG Filter", 
+                                                 "WT QG Filter", "WT PPP Filter", "WT PPG Filter", "WT Serine string Filter",
+                                                 "WT Unique(vs Proteome)", "WT digestion efficiency filter"),
                                  choiceValues = c("Native_Length_Filter", "Native_N_Gln_Filter", "Native_C_Filter", "Native_M_Filter", 
                                                   "Native_W_Filter", "Native_DG_Filter", "Native_DP_Filter", "Native_NG_Filter", 
                                                   "Native_QG_Filter", "Native_PPP_Filter", "Native_PPG_Filter", "Native_SS_Filter",
@@ -1032,7 +1068,7 @@ server <- function(input, output, session) {
         if(query$data_set=="GDC"){
           c("ID", "Symbol","Mutation ID","HGVSC","HGVSP","HGVSG",
             "Consequence", "Gene ID", "Transcript ID", "Prevalence",
-            "Mutation Type", "Mutation Subtype", "Uniprot ID","Mutant Tryptic Peptide", 
+            "Mutation Type", "Mutation Subtype", "Uniprot ID","Variant Tryptic Peptide", 
             "Mutant GRAVY", "Native Tryptic Peptide", "Native GRAVY",
             # "Native Sequence", "Native Canonical Sequence", "Mutant Sequence", 
             "Peptide start","Peptide end", "Length", "Isoforms", 
@@ -1056,7 +1092,7 @@ server <- function(input, output, session) {
           c("ID", "Symbol","Mutation ID","HGVSC","HGVSP",
             "Consequence", "Gene ID", "Transcript ID", "Prevalence",
             "COSMIC Samples Tested", "Mutation Frequency", "Mutation Type",  
-            "ONTOLOGY_MUTATION_CODE", "Uniprot ID","Mutant Tryptic Peptide", 
+            "ONTOLOGY_MUTATION_CODE", "Uniprot ID","Variant Tryptic Peptide", 
             "Mutant GRAVY", "Native Tryptic Peptide", "Native GRAVY",
             # "Native Sequence", "Native Canonical Sequence", "Mutant Sequence", 
             "Peptide start","Peptide end", "Length", "Isoforms", 
@@ -1162,7 +1198,7 @@ server <- function(input, output, session) {
             cols = c('Mutation ID' = 'Mutation_id', "Mutation Type" = "Mutation_Type",
                      "Mutations Subtype" = "Mutation_Subtype", "Gene ID" = "Gene_id",
                      "Transcript ID" = "Transcript_id", "Uniprot ID" = "Uniprot_id",
-                     "Mutant Tryptic Peptide" = "Mutant_Tryptic_Peptide", "Mutant GRAVY" = "Mutant_GRAVY", 
+                     "Variant Tryptic Peptide" = "Mutant_Tryptic_Peptide", "Mutant GRAVY" = "Mutant_GRAVY", 
                      "Wild type Tryptic Peptide" = "Native_Tryptic_Peptide", "Wild type GRAVY" = "Native_GRAVY", 
                      
                      "Peptide Start" = "Peptide_start", "Peptide End" = "Peptide_end", "Protein Names" = "Protein_Names",
@@ -1176,7 +1212,7 @@ server <- function(input, output, session) {
                      "COSMIC Mutation Frequency" = "COSMIC_Mutation_Frequency",
                      "Ontology Mutation Code" = "ONTOLOGY_MUTATION_CODE",
                      "Transcript ID" = "Transcript_id", "Uniprot ID" = "Uniprot_id",
-                     "Mutant Tryptic Peptide" = "Mutant_Tryptic_Peptide", "Mutant GRAVY" = "Mutant_GRAVY", 
+                     "Variant Tryptic Peptide" = "Mutant_Tryptic_Peptide", "Mutant GRAVY" = "Mutant_GRAVY", 
                      "Wild type Tryptic Peptide" = "Native_Tryptic_Peptide", "Wild type GRAVY" = "Native_GRAVY", 
                      
                      "Peptide Start" = "Peptide_start", "Peptide End" = "Peptide_end", "Protein Names" = "Protein_Names",
@@ -1460,6 +1496,9 @@ server <- function(input, output, session) {
       table = entry_index_link()[,c("Symbol", "Mutation_id", "HGVSC", "HGVSP", "HGVSG",
                                "Consequence", "Gene_id", "Transcript_id", "Prevalence", 
                                "Mutation_Type", "Mutation_Subtype", "Uniprot_id")]
+      colnames(table) = c("Symbol", "Mutation ID", "HGVSc", "HGVSp", "HGVSg",
+                          "Consequence", "Gene ID", "Transcript ID", "Prevalence", 
+                          "Mutation Type", "Mutation Subtype", "Uniprot ID")
     }else if(grepl("QPCO", query$ID)){
       # table = entry_index_link()[,c("Symbol", "Mutation_id", "HGVSC", "HGVSP",
       #                          "Consequence", "Gene_id", "Transcript_id", "Prevalence", 
@@ -1505,6 +1544,9 @@ server <- function(input, output, session) {
       table = entry_index_link()[,c("Mutant_Tryptic_Peptide", "Mutant_GRAVY", "Native_Tryptic_Peptide",
                                "Native_GRAVY", "Peptide_start", "Peptide_end", "Length", "Isoforms",
                                "Organism", "Protein_Names", "Entry_Name", "Gene_Names")]
+      colnames(table) = c("Variant Tryptic Peptide", "Variant GRAVY", "Wild type Tryptic Peptide",
+                          "Wild type GRAVY", "Peptide start", "Peptide end", "Length", "Isoforms",
+                          "Organism", "Protein Names", "Entry Name", "Gene Names")
     }else if(grepl("QPCO", query$ID)){
       table = entry_index_link()[,c("Mutant_Tryptic_Peptide", "Mutant_GRAVY", "Native_Tryptic_Peptide",
                                "Native_GRAVY", "Peptide_start", "Peptide_end", "Length", "Isoforms",
@@ -1679,7 +1721,10 @@ server <- function(input, output, session) {
                                                               file, row.names = FALSE)
                                                           })
   
-  
+  output$help_ppt <- downloadHandler(filename = paste("QuaVaProt_tutorial.ppt"), 
+                                     content = function(file){
+                                       file.copy("data/QuaVaProt_tutorial.pptx", file)
+                                     })
   
   GO_table <- reactive({
     if(grepl("QPGD", query$ID)){
@@ -1930,7 +1975,8 @@ server <- function(input, output, session) {
   })
   
   gene_table_1 = reactive({
-    gene_table()[,c(default_columns$values)]
+    table = gene_table()[,c(default_columns$values)]
+    table
   })
   
   output$gene_summary_table <- DT::renderDataTable({
@@ -1945,38 +1991,34 @@ server <- function(input, output, session) {
       ),
       selection = "none",
       rownames = FALSE, 
-      colnames =  
+      
+      colnames =
         {
           if(query$data_set=="GDC"){
             cols = c('Mutation ID' = 'Mutation_id', "Mutation Type" = "Mutation_Type",
                      "Mutations Subtype" = "Mutation_Subtype", "Gene ID" = "Gene_id",
                      "Transcript ID" = "Transcript_id", "Uniprot ID" = "Uniprot_id",
-                     "Mutant Tryptic Peptide" = "Mutant_Tryptic_Peptide", "Mutant GRAVY" = "Mutant_GRAVY", 
-                     "Wild type Tryptic Peptide" = "Native_Tryptic_Peptide", "Wild type GRAVY" = "Native_GRAVY", 
-                     
-                     "Peptide Start" = "Peptide_start", "Peptide End" = "Peptide_end", "Protein Names" = "Protein_Names",
-                     "Entry Name" = "Entry_Name", "Gene Names" = "Gene_Names", "Gene Ontology Biological Process" = "Gene.Ontology..biological.process.",
-                     "Gene Ontology Cellular Component" = "Gene.Ontology..cellular.component.",
-                     "Gene Ontology Molecular Function" = "Gene.Ontology..molecular.function.",
-                     "Subcellular Location CC" = "Subcellular.location..CC.")
+                     "Variant Tryptic Peptide" = "Mutant_Tryptic_Peptide", "Mutant GRAVY" = "Mutant_GRAVY",
+                     "Wild type Tryptic Peptide" = "Native_Tryptic_Peptide")
           }else if(query$data_set=="COSMIC"){
             # cols = c('Mutation ID' = 'Mutation_id', "Mutation Type" = "Mutation_type",
             #          "COSMIC Samples Tested" = "COSMIC_SAMPLE_TESTED", "Gene ID" = "Gene_id",
             #          "COSMIC Mutation Frequency" = "COSMIC_Mutation_Frequency",
             #          "Ontology Mutation Code" = "ONTOLOGY_MUTATION_CODE",
             #          "Transcript ID" = "Transcript_id", "Uniprot ID" = "Uniprot_id",
-            #          "Mutant Tryptic Peptide" = "Mutant_Tryptic_Peptide", "Mutant GRAVY" = "Mutant_GRAVY", 
-            #          "Wild type Tryptic Peptide" = "Native_Tryptic_Peptide", "Wild type GRAVY" = "Native_GRAVY", 
-            #          
+            #          "Variant Tryptic Peptide" = "Mutant_Tryptic_Peptide", "Mutant GRAVY" = "Mutant_GRAVY",
+            #          "Wild type Tryptic Peptide" = "Native_Tryptic_Peptide", "Wild type GRAVY" = "Native_GRAVY",
+            #
             #          "Peptide Start" = "Peptide_start", "Peptide End" = "Peptide_end", "Protein Names" = "Protein_Names",
             #          "Entry Name" = "Entry_Name", "Gene Names" = "Gene_Names", "Gene Ontology Biological Process" = "Gene.Ontology..biological.process.",
             #          "Gene Ontology Cellular Component" = "Gene.Ontology..cellular.component.",
             #          "Gene Ontology Molecular Function" = "Gene.Ontology..molecular.function.",
             #          "Subcellular Location CC" = "Subcellular.location..CC.")
           }
-          index = cols %in% colnames(dfresults_table())
+          index = cols %in% colnames(gene_table_1())
           cols[index]
         },
+      
       style = "auto",
       class = "display compact",
       callback = JS("
