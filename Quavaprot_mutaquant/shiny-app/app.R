@@ -464,19 +464,19 @@ server <- function(input, output, session) {
                   card_body(plotlyOutput("disease_site", height = 500, width = "auto"))
                 ),
                 
-                if(!(is.na(GAPP_table2$Native_Trasitions[entry_index()]))){
+                if(!(is.na(GAPP_table2$WT_Trasitions[entry_index()]))){
                   h1("Wild Type Transitions")
                 },
-                if(!(is.na(GAPP_table2$Native_Trasitions[entry_index()]))){
+                if(!(is.na(GAPP_table2$WT_Trasitions[entry_index()]))){
                   card(
                     style="border:none;",
                     DT::dataTableOutput("transitionstable_nat")
                   )
                 },
-                if(!(is.na(GAPP_table2$Mutant_Trasitions[entry_index()]))){
+                if(!(is.na(GAPP_table2$Variant_Trasitions[entry_index()]))){
                   h1("Variant Transitions")
                 },
-                if(!(is.na(GAPP_table2$Mutant_Trasitions[entry_index()]))){
+                if(!(is.na(GAPP_table2$Variant_Trasitions[entry_index()]))){
                   card(
                     style="border:none;",
                     DT::dataTableOutput("transitionstable_mut")
@@ -586,7 +586,7 @@ server <- function(input, output, session) {
 
   
   #Home page tab
-  output$PeptideCount <- renderText({length(unique(c(GAPP_table2$GDC.Mutant.Tryptic.Peptide)))})
+  output$PeptideCount <- renderText({length(unique(c(GAPP_table2$Variant.Tryptic.Peptide)))})
   output$ProteinCount <- renderText({length(unique(GAPP_table2$Symbol))})
   
   variant_distribution <- reactive({
@@ -611,7 +611,7 @@ server <- function(input, output, session) {
   })
   
   var_pep_len_distribution <- reactive({
-    pep_length = nchar(GAPP_table2$GDC.Mutant.Tryptic.Peptide)
+    pep_length = nchar(GAPP_table2$Variant.Tryptic.Peptide)
     pep_length = as.data.frame(table(pep_length))
     colnames(pep_length) <- c("length", "Freq")
     pep_length
@@ -665,7 +665,7 @@ server <- function(input, output, session) {
     }else if (query$search == 7){
       index = grep(tolower(query$query), tolower(GAPP_table3$Consequence), fixed = TRUE)
     }else if (query$search == 8){
-      index = grep(tolower(query$query), tolower(GAPP_table3$GDC.Mutant.Tryptic.Peptide), fixed = TRUE)
+      index = grep(tolower(query$query), tolower(GAPP_table3$Variant.Tryptic.Peptide), fixed = TRUE)
     }else if (query$search == 9){
       index = grep(tolower(query$query), tolower(GAPP_table3$Gene.Ontology..biological.process.), fixed = TRUE)
     }else if (query$search == 10){
@@ -680,12 +680,12 @@ server <- function(input, output, session) {
   
   col_list = c("ID", "Prevalence","Symbol","Mutation.id","AA.Change","DNA.Change","hgvsc",
                "Consequence","Mutation.Type","Mutation.Subtype","Gene.id","GDC.Transcript",
-               "Uniprot.id","GDC.Mutant.Tryptic.Peptide","Mutant_Synthesized","Mutant_GRAVY",
-               "Mutant_Concentration_Range","Mutant_Special_Residues", "Mutant_AAA","Mutant_CZE",
-               "Mutant_Retention_Time","Mutant_Gradient","Mutant_Trasitions","GDC.Native.Tryptic.Peptide",
-               "Native_Synthesized", "Native_GRAVY","Native_Concentration_Range",
-               "Native_Special_Residues","Native_AAA","Native_CZE","Native_Retention_Time",
-               "Native_Gradient","Native_Trasitions","Peptide_start","Peptide_end","Isoforms",
+               "Uniprot.id","Variant.Tryptic.Peptide","Variant_Synthesized","Variant_GRAVY",
+               "Variant_Concentration_Range","Variant_Special_Residues", "Variant_AAA","Variant_CZE",
+               "Variant_Retention_Time","Variant_Gradient","Variant_Trasitions","WT.Tryptic.Peptide",
+               "WT_Synthesized", "WT_GRAVY","WT_Concentration_Range",
+               "WT_Special_Residues","WT_AAA","WT_CZE","WT_Retention_Time",
+               "WT_Gradient","WT_Trasitions","Peptide_start","Peptide_end","Isoforms",
                "Organism","Protein.names","Entry.Name","Gene.Names","Length","Mass",
                "Gene.Ontology..biological.process.","Gene.Ontology..cellular.component.",
                "Gene.Ontology..molecular.function.","Subcellular.location..CC.","IntAct",
@@ -693,9 +693,9 @@ server <- function(input, output, session) {
   
   col_list_names = c("ID", "Prevalence","Symbol",'GDC Mutation ID', 'HGVSP', "HGVSG", "HGVSC", 
                      "Consequence","Mutation Type", "Mutations Subtype", "Gene ID", "Transcript ID", 
-                     "Uniprot ID", "Mutant Tryptic Peptide", "Mutant Synthesized", "Mutant GRAVY", 
-                     "Mutant Concentration Range","Mutant Special Residues", "Mutant AAA", "Mutant CZE", 
-                     "Mutant Retention Time", "Mutant Gradient", "Mutant Trasitions", "Wild Type Tryptic Peptide", 
+                     "Uniprot ID", "Variant Tryptic Peptide", "Variant Synthesized", "Variant GRAVY", 
+                     "Variant Concentration Range","Variant Special Residues", "Variant AAA", "Variant CZE", 
+                     "Variant Retention Time", "Variant Gradient", "Variant Trasitions", "Wild Type Tryptic Peptide", 
                      "Wild Type Synthesized", "Wild Type GRAVY", "Wild Type Concentration Range", 
                      "Wild Type Special Residues", "Wild Type AAA", "Wild Type CZE", "Wild Type Retention Time",
                      "Wild Type Gradient", "Wild Type Trasitions", "Peptide Start", "Peptide End", "Isoforms",
@@ -706,8 +706,8 @@ server <- function(input, output, session) {
   
   observeEvent(input$result_columns, {
     index1 = grep(TRUE, col_list == "ID"):grep(TRUE, col_list == "Uniprot.id")
-    index2 = grep(TRUE, col_list == "GDC.Mutant.Tryptic.Peptide"):grep(TRUE, col_list == "Mutant_Trasitions")
-    index3 = grep(TRUE, col_list == "GDC.Native.Tryptic.Peptide"):grep(TRUE, col_list == "Native_Trasitions")
+    index2 = grep(TRUE, col_list == "Variant.Tryptic.Peptide"):grep(TRUE, col_list == "Variant_Trasitions")
+    index3 = grep(TRUE, col_list == "WT.Tryptic.Peptide"):grep(TRUE, col_list == "WT_Trasitions")
     index4 = grep(TRUE, col_list == "Peptide_start"):grep(TRUE, col_list == "Subcellular.location..CC.")
     index5 = grep(TRUE, col_list == "IntAct"):grep(TRUE, col_list == "DisGeNET")
     showModal(
@@ -772,8 +772,8 @@ server <- function(input, output, session) {
     }
   })
   
-  default_columns = col_list[c((grep(TRUE, col_list == "ID"):grep(TRUE, col_list == "GDC.Mutant.Tryptic.Peptide")),
-                               grep(TRUE, col_list == "GDC.Native.Tryptic.Peptide"))]
+  default_columns = col_list[c((grep(TRUE, col_list == "ID"):grep(TRUE, col_list == "Variant.Tryptic.Peptide")),
+                               grep(TRUE, col_list == "WT.Tryptic.Peptide"))]
   
   observeEvent(input$view_change, {
     if(input$view_change %% 2){
@@ -800,16 +800,16 @@ server <- function(input, output, session) {
              "HGVSC" = "hgvsc", "Mutation Type" = "Mutation.Type",
              "Mutations Subtype" = "Mutation.Subtype", "Gene ID" = "Gene.id",
              "Transcript ID" = "GDC.Transcript", "Uniprot ID" = "Uniprot.id",
-             "Mutant Tryptic Peptide" = "GDC.Mutant.Tryptic.Peptide", "Mutant Synthesized" = "Mutant_Synthesized",
-             "Mutant GRAVY" = "Mutant_GRAVY", "Mutant Concentration Range" = "Mutant_Concentration_Range",
-             "Mutant Special Residues" = "Mutant_Special_Residues", "Mutant AAA" = "Mutant_AAA",
-             "Mutant CZE" = "Mutant_CZE", "Mutant Retention Time" = "Mutant_Retention_Time",
-             "Mutant Gradient" = "Mutant_Gradient", "Mutant Trasitions" = "Mutant_Trasitions",
-             "Wild Type Tryptic Peptide" = "GDC.Native.Tryptic.Peptide", "Wild Type Synthesized" = "Native_Synthesized",
-             "Wild Type GRAVY" = "Native_GRAVY", "Wild Type Concentration Range" = "Native_Concentration_Range",
-             "Wild Type Special Residues" = "Native_Special_Residues", "Wild Type AAA" = "Native_AAA",
-             "Wild Type CZE" = "Native_CZE", "Wild Type Retention Time" = "Native_Retention_Time",
-             "Wild Type Gradient" = "Native_Gradient", "Wild Type Trasitions" = "Native_Trasitions",
+             "Variant Tryptic Peptide" = "Variant.Tryptic.Peptide", "Variant Synthesized" = "Variant_Synthesized",
+             "Variant GRAVY" = "Variant_GRAVY", "Variant Concentration Range" = "Variant_Concentration_Range",
+             "Variant Special Residues" = "Variant_Special_Residues", "Variant AAA" = "Variant_AAA",
+             "Variant CZE" = "Variant_CZE", "Variant Retention Time" = "Variant_Retention_Time",
+             "Variant Gradient" = "Variant_Gradient", "Variant Trasitions" = "Variant_Trasitions",
+             "Wild Type Tryptic Peptide" = "WT.Tryptic.Peptide", "Wild Type Synthesized" = "WT_Synthesized",
+             "Wild Type GRAVY" = "WT_GRAVY", "Wild Type Concentration Range" = "WT_Concentration_Range",
+             "Wild Type Special Residues" = "WT_Special_Residues", "Wild Type AAA" = "WT_AAA",
+             "Wild Type CZE" = "WT_CZE", "Wild Type Retention Time" = "WT_Retention_Time",
+             "Wild Type Gradient" = "WT_Gradient", "Wild Type Trasitions" = "WT_Trasitions",
              "Peptide Start" = "Peptide_start", "Peptide End" = "Peptide_end", "Protein Names" = "Protein.names",
              "Entry Name" = "Entry.Name", "Gene Names" = "Gene.Names", "Gene Ontology Biological Process" = "Gene.Ontology..biological.process.",
              "Gene Ontology Cellular Component" = "Gene.Ontology..cellular.component.",
@@ -912,12 +912,12 @@ server <- function(input, output, session) {
   })
   
   concrangetable = reactive({
-    table = flat_to_df(GAPP_table2$Mutant_Concentration_Range[entry_index()])
+    table = flat_to_df(GAPP_table2$Variant_Concentration_Range[entry_index()])
     return(table)
   })
   
-  transitionstable_nat = reactive({flat_to_df(GAPP_table2$Native_Trasitions[entry_index()])})
-  transitionstable_mut = reactive({flat_to_df(GAPP_table2$Mutant_Trasitions[entry_index()])})
+  transitionstable_nat = reactive({flat_to_df(GAPP_table2$WT_Trasitions[entry_index()])})
+  transitionstable_mut = reactive({flat_to_df(GAPP_table2$Variant_Trasitions[entry_index()])})
   
   output$peptide_id <- renderText(query$ID)
   
@@ -933,9 +933,9 @@ server <- function(input, output, session) {
   
   output$peptide_seq <- renderText({
     if (query$Type == "Mut"){
-      col = "GDC.Mutant.Tryptic.Peptide"
+      col = "Variant.Tryptic.Peptide"
     }else if (query$Type == "Nat"){
-      col = "GDC.Native.Tryptic.Peptide"
+      col = "WT.Tryptic.Peptide"
     }
     seq = GAPP_table2[entry_index(),c(col)]
     return(seq)
@@ -943,9 +943,9 @@ server <- function(input, output, session) {
   
   output$special_residues <- renderText({
     if (query$Type == "Mut"){
-      col = "Mutant_Special_Residues"
+      col = "Variant_Special_Residues"
     }else if (query$Type == "Nat"){
-      col = "Native_Special_Residues"
+      col = "WT_Special_Residues"
     }
     residue = GAPP_table2[entry_index(),c(col)]
   })
@@ -955,16 +955,16 @@ server <- function(input, output, session) {
   })
   
   output$peptide_highlight_mut <- renderText({
-    seq = GAPP_table[entry_index(), c("Mutated.GDC.Sequence")]
-    pep = GAPP_table[entry_index(), c("GDC.Mutant.Tryptic.Peptide")]
+    seq = GAPP_table[entry_index(), c("Variant.Sequence")]
+    pep = GAPP_table[entry_index(), c("Variant.Tryptic.Peptide")]
     entry = gsub(pep,{paste('<span style="color:red; font-weight: bold;">',pep,'</span>', sep = "")},seq)
     entry = paste('<p class="peptidetext">',entry,'</p>', sep = "")
     return(entry)
   })
   
   output$peptide_highlight_nat <- renderText({
-    seq = GAPP_table[entry_index(), c("GDC.Native.Sequence")]
-    pep = GAPP_table[entry_index(), c("GDC.Native.Tryptic.Peptide")]
+    seq = GAPP_table[entry_index(), c("WT.Sequence")]
+    pep = GAPP_table[entry_index(), c("WT.Tryptic.Peptide")]
     entry = gsub(pep,{paste('<span style="color:red; font-weight: bold;">',pep,'</span>', sep = "")},seq)
     entry = paste('<p class="peptidetext">',entry,'</p>', sep = "")
     return(entry)
@@ -1014,7 +1014,7 @@ server <- function(input, output, session) {
       rownames = FALSE,
       colnames = c("Rank", "Heavy", "Precursor Ion (m/z)", "Collision Energy", 
                    "Polarity", "Fragment Ion", "Dwell", "Cell Accelerator Voltage", 
-                   "Parent Charge State", "Product Ion (m/z)", "Fragmentor", "Abundance"),
+                   "Parent Charge State", "Product Ion (m/z)", "Fragmentor", "Abundance", "Instrument"),
       class = "display cell-border compact",
       options = list(
         paging = FALSE,
@@ -1043,7 +1043,7 @@ server <- function(input, output, session) {
       rownames = FALSE,
       colnames = c("Rank", "Heavy", "Precursor Ion (m/z)", "Collision Energy", 
                    "Polarity", "Fragment Ion", "Dwell", "Cell Accelerator Voltage", 
-                   "Parent Charge State", "Product Ion (m/z)", "Fragmentor", "Abundance"),
+                   "Parent Charge State", "Product Ion (m/z)", "Fragmentor", "Abundance", "Instrument"),
       class = "display cell-border compact",
       options = list(
         paging = FALSE,
@@ -1102,14 +1102,14 @@ server <- function(input, output, session) {
   }
   
   summary_table_2 <- reactive({
-    table1 = GAPP_table3[entry_index(),c("GDC.Mutant.Tryptic.Peptide", "Mutant_Synthesized", 
-                                         "Mutant_GRAVY", "Mutant_Special_Residues", 
-                                         "Mutant_AAA", "Mutant_CZE", "Mutant_Retention_Time", 
-                                         "Mutant_Gradient", "Mutant_Trasitions")]
-    table2 = GAPP_table3[entry_index(),c("GDC.Native.Tryptic.Peptide", "Native_Synthesized", 
-                                         "Native_GRAVY", "Native_Special_Residues", 
-                                         "Native_AAA", "Native_CZE", "Native_Retention_Time", 
-                                         "Native_Gradient", "Native_Trasitions")]
+    table1 = GAPP_table3[entry_index(),c("Variant.Tryptic.Peptide", "Variant_Synthesized", 
+                                         "Variant_GRAVY", "Variant_Special_Residues", 
+                                         "Variant_AAA", "Variant_CZE", "Variant_Retention_Time", 
+                                         "Variant_Gradient", "Variant_Trasitions")]
+    table2 = GAPP_table3[entry_index(),c("WT.Tryptic.Peptide", "WT_Synthesized", 
+                                         "WT_GRAVY", "WT_Special_Residues", 
+                                         "WT_AAA", "WT_CZE", "WT_Retention_Time", 
+                                         "WT_Gradient", "WT_Trasitions")]
     cols = c("Tryptic Peptide", "Synthesized", "GRAVY", "Special Residues", "AAA", 
              "CZE", "Retention Time", "Gradient", "Transitions")
     colnames(table1) = cols
@@ -1151,8 +1151,8 @@ server <- function(input, output, session) {
   
   df_fasta <- reactive({
     fasta_label = c()
-    fasta_seq = c(GAPP_table$GDC.Native.Sequence[entry_index()], GAPP_table$Mutated.GDC.Sequence[entry_index()])
-    fasta_pep = c(GAPP_table2$GDC.Native.Tryptic.Peptide[entry_index()], GAPP_table2$GDC.Mutant.Tryptic.Peptide[entry_index()])
+    fasta_seq = c(GAPP_table$WT.Sequence[entry_index()], GAPP_table$Variant.Sequence[entry_index()])
+    fasta_pep = c(GAPP_table2$WT.Tryptic.Peptide[entry_index()], GAPP_table2$Variant.Tryptic.Peptide[entry_index()])
     
     #nat
     paste_list = c()
@@ -1412,7 +1412,7 @@ server <- function(input, output, session) {
     GAPP_table3[c(GAPP_table2$Symbol == query$gene), c("ID", "Prevalence", "Mutation.id", "AA.Change", 
                                           "DNA.Change", "hgvsc", "Consequence", "Mutation.Type", 
                                           "Mutation.Subtype", "Gene.id", "GDC.Transcript", "Uniprot.id",
-                                          "GDC.Mutant.Tryptic.Peptide", "GDC.Native.Tryptic.Peptide")]
+                                          "Variant.Tryptic.Peptide", "WT.Tryptic.Peptide")]
   })
   
   output$gene_summary_table <- DT::renderDataTable({
@@ -1431,8 +1431,8 @@ server <- function(input, output, session) {
                    "HGVSC" = "hgvsc", "Mutation Type" = "Mutation.Type", 
                    "Mutations Subtype" = "Mutation.Subtype", "Gene ID" = "Gene.id",
                    "Transcript ID" = "GDC.Transcript", "Uniprot ID" = "Uniprot.id", 
-                   "Mutant Tryptic Peptide" = "GDC.Mutant.Tryptic.Peptide", 
-                   "Wild Type Tryptic Peptide" = "GDC.Native.Tryptic.Peptide"),
+                   "Variant Tryptic Peptide" = "Variant.Tryptic.Peptide", 
+                   "Wild Type Tryptic Peptide" = "WT.Tryptic.Peptide"),
       style = "auto",
       class = "display compact",
       callback = JS("
