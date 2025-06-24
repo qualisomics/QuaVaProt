@@ -15,5 +15,5 @@ The folder structure should be as so:
 ├── -Dockerfile
 ├── -docker-compose.yml
 └── -nginx.conf
-
+ 
 Then build and run the docker image using the command: docker-compose up --build
