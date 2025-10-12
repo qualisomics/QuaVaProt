@@ -1,4 +1,5 @@
 library(UniProt.ws)
+library(dplyr)
 library(httr, include.only = c("GET", "POST", "accept", "content_type", "content_type_json"))
 library(jsonlite)
 library(bioseq)
@@ -26,14 +27,18 @@ check_api_running = function(){
 Ensembl_protein_sequence_retreiver <- function(Table, Ensembl_ids){
   dfseq <- data.frame()
   idlist <- unique(Ensembl_ids)
-  print(length(idlist))
+  
+  if(length(idlist) == 1){
+    if(is.na(idlist)){
+      return(Table)
+    }
+  }
+  
   for (n in seq(1, length(idlist), 50)){
-    print(n)
     g = n+49
     if (g > length(idlist)){
       g = length(idlist)
     }
-    print(g)
     x = gsub(", ", '","', toString(idlist[n:g]))
     b = gsub("XX", x, '{ "ids" : ["XX"], "type" : "protein"}')
     url <- "https://rest.ensembl.org/sequence/id"
@@ -70,12 +75,10 @@ Ensembl_protein_sequence_retreiver <- function(Table, Ensembl_ids){
   if (length(misslist) != 0){
     dfseq2 <- data.frame()
     for (n in seq(1, length(misslist), 50)){
-      print(n)
       g = n+49
       if (g > length(misslist)){
         g = length(misslist)
       }
-      print(g)
       x = gsub(", ", '","', toString(misslist[n:g]))
       b = gsub("XX", x, '{ "ids" : ["XX"], "type" : "protein"}')
       url <- "https://grch37.rest.ensembl.org/sequence/id"
@@ -316,12 +319,10 @@ Ensembl_Gene_id_retreiver <- function(Table, Ensembl_ids){
     idlist = idlist[-c(check)]
   }
   for (n in seq(1, length(idlist), 50)){
-    print(n)
     g = n+49
     if (g > length(idlist)){
       g = length(idlist)
     }
-    print(g)
     x = gsub(", ", '","', toString(idlist[n:g]))
     b = gsub("XX", x, '{ "ids" : ["XX"] }')
     url <- "https://rest.ensembl.org/lookup/id"
@@ -372,12 +373,10 @@ Ensembl_Gene_id_retreiver <- function(Table, Ensembl_ids){
   if (length(misslist) != 0){
     dfseq2 <- data.frame()
     for (n in seq(1, length(misslist), 50)){
-      print(n)
       g = n+49
       if (g > length(misslist)){
         g = length(misslist)
       }
-      print(g)
       x = gsub(", ", '","', toString(misslist[n:g]))
       b = gsub("XX", x, '{ "ids" : ["XX"]}')
       url <- "https://grch37.rest.ensembl.org/lookup/id"
@@ -425,8 +424,6 @@ Uniprot_to_ensembl_gene_id = function(Table, Uniprot_ids){
     if (g > length(ids)){
       g = length(ids)
     }
-    print(n)
-    print(g)
     url <- paste("https://rest.uniprot.org/uniprotkb/search?query=accession%3A%28",
                  gsub(", ", "%20OR%20", toString(ids[n:g])),
                  "%29&format=json&size=500&fields=accession,xref_ensembl",
@@ -456,8 +453,12 @@ Ensembl_Gene_id_to_transcript_id = function(Table, Gene_ids){
     Gene_ids = Gene_ids[-c(index)]
   }
   dfec = data.frame()
+  
+  if(length(Gene_ids) == 0){
+    return(Table)
+  }
+  
   for (n in seq(1, length(Gene_ids), 50)){
-    print(n)
     g = n+49
     if (g > length(Gene_ids)){
       g = length(Gene_ids)
@@ -469,11 +470,50 @@ Ensembl_Gene_id_to_transcript_id = function(Table, Gene_ids){
     res <- POST(url, content_type("application/json"), accept("application/json"), body = b)
     data = fromJSON(rawToChar(res$content))
     for(n in 1:length(Gene_ids)){
-      dfec1$transcript_id[n] <- data[[{as.character(dfec1$Gene_id[n])}]][["canonical_transcript"]]
+      if(length(data[[{as.character(dfec1$Gene_id[n])}]][["canonical_transcript"]]) != 0){
+        dfec1$transcript_id[n] <- data[[{as.character(dfec1$Gene_id[n])}]][["canonical_transcript"]]
+      }
     }
     dfec = rbind(dfec, dfec1)
   }
   Table = rows_patch(Table, dfec, by = "Gene_id")
+}
+More_Uniprot_info <- function(Table, ids, search_fields=NA, Merge_output=TRUE){
+  
+  #calls uniprot api to get all sequences
+  geneid <- (unique(ids))
+  length(geneid)
+  dfyes=data.frame()
+  for (n in seq(1, length(geneid), 1500)){
+    g = n+1499
+    if (g > length(geneid)){
+      g = length(geneid)
+    }
+    geneid2 <- paste(geneid[n:g], collapse = ", ")
+    suppressWarnings(
+      dfyes2 <- mapUniProt(from = "UniProtKB_AC-ID", 
+                           to = "UniProtKB",
+                           query = c(geneid2),
+                           columns = search_fields)
+    )
+    dfyes = rbind(dfyes, dfyes2)
+  }
+  
+  #extracts only canonical sequences, marked as reviewed
+  dfyes2 <- data.frame()
+  list = grep(TRUE, ("reviewed" == dfyes$Reviewed))
+  dfyes2 = dfyes[list,]
+  dfyes2 <- distinct(dfyes2)
+  names(dfyes2)[names(dfyes2) == 'From'] <- 'Uniprot_id'
+  rownames(dfyes2) <- NULL
+  dfyes2 <- dfyes2[,c(colnames(dfyes2) != "Reviewed")]
+  
+  if (Merge_output == TRUE){
+    Table <- left_join(Table, dfyes2, by="Uniprot_id")
+    return(Table)
+  }else{
+    return(dfyes2)
+  }
 }
 
 #Mutant sequence generation
@@ -593,12 +633,10 @@ Ensembl_cdna_sequence_retreiver <- function(Ensembl_ids){
   dfseq <- data.frame()
   idlist <- unique(Ensembl_ids)
   for (n in seq(1, length(idlist), 50)){
-    print(n)
     g = n+49
     if (g > length(idlist)){
       g = length(idlist)
     }
-    print(g)
     x = gsub(", ", '","', toString(idlist[n:g]))
     b = gsub("XX", x, '{ "ids" : ["XX"], "type" : "cdna", "mask_feature" : "1"}')
     url <- "https://rest.ensembl.org/sequence/id"
@@ -631,12 +669,10 @@ Ensembl_cdna_sequence_retreiver <- function(Ensembl_ids){
   if (!(is.null(misslist))){
     dfseq2 <- data.frame()
     for (n in seq(1, length(misslist), 50)){
-      print(n)
       g = n+49
       if (g > length(misslist)){
         g = length(misslist)
       }
-      print(g)
       x = gsub(", ", '","', toString(misslist[n:g]))
       b = gsub("XX", x, '{ "ids" : ["XX"], "type" : "cdna", "mask_feature" : "1"}')
       url <- "https://grch37.rest.ensembl.org/sequence/id"
@@ -1001,7 +1037,7 @@ Validation_checker_2 <- function(hgvsp, WT_seq, Var_seq){
         ins_region = strsplit(x[1], split = "_")[[1]]
         ins_residues = x[2]
         l1 = nchar(ins_region[1])
-        position1 = as.numeric(substr(ins_region[1], start = 2, l1))
+        position1 = as.numeric(substr(ins_region[1], start = 2, l1)) + 1
         position2 = position1 + nchar(ins_residues) - 1
         if((substr(Var_seq, position1, position2) == ins_residues)){
           return(TRUE)
@@ -1353,13 +1389,11 @@ Isoform_retriever <- function(Uniprot_ids){
       return("ERROR, request too big")
     }
     seqtable <- rbind(seqtable, seq)
-    print(nrow(seq))
   }
   
   peplist <- c()
   peps <- data.frame(Uniprot_id=ids, Peptides=NA, Isoforms=NA)
   for (n in 1:nrow(peps)){
-    print(n)
     b <- grep(peps$Uniprot_id[n], seqtable$Accession)
     peps$Isoforms[n] = length(b)
     for (g in b){
@@ -1435,7 +1469,6 @@ Human_proteome_retriever <- function(){
     if (g > total_results){
       g = total_results
     }
-    print(g)
     res <- GET(url)
     data = fromJSON(rawToChar(res$content))
     seq <- data[["results"]]
@@ -1451,7 +1484,6 @@ Human_proteome_retriever <- function(){
   }
   peplist <- c()
   for (n in 1:nrow(proteome)){
-    print(n)
     dig = trypsin(proteome$Sequence[n], TRUE, FALSE, FALSE)
     peplist <- c(peplist, dig$peptide)
   }
@@ -1466,7 +1498,6 @@ Human_proteome_checker <- function(Table, Mutant_peptides, Reference_peptides,
   check <- rep(FALSE, nrow(Table))
   index = which(Passed == TRUE)
   for (n in index){
-    print(n)
     if (!(is.na(Mutant_peptides[n])) & !(is.na(Allowance[n]))){
       if (length(which(Mutant_peptides[n] == Reference_peptides)) <= Allowance[n]){
         check[n] = TRUE 
@@ -1516,8 +1547,6 @@ PTM_Filter <- function(Table, Uniprot_id, GDC_native_seq, GDC_mut_seq,
     if (g > length(ids)){
       g = length(ids)
     }
-    print(n)
-    print(g)
     url <- paste("https://rest.uniprot.org/uniprotkb/search?query=accession%3A%28",
                  gsub(", ", "%20OR%20", toString(ids[n:g])),
                  "%29&format=json&size=500&fields=accession,length,xref_pride,ft_chain,ft_crosslnk,ft_disulfid,ft_carbohyd,ft_lipid,ft_mod_res,ft_peptide,ft_propep,ft_signal,ft_transit",
@@ -1560,7 +1589,6 @@ PTM_Filter <- function(Table, Uniprot_id, GDC_native_seq, GDC_mut_seq,
   class(dfPTM_short1$Cleave_sites) = "list"
   class(dfPTM_short1$Other_sites) = "list"
   for (n in 1:nrow(dfPTM_short1)){
-    print(n)
     cleavelist = c()
     for (g in 1:length(dfPTM_short1$Pep_start[[n]])){
       if (!(is.na(dfPTM_short1$Pep_start[[n]][g])) & (!(is.na(dfPTM_short1$Pep_end[[n]][g])))){
@@ -1584,7 +1612,6 @@ PTM_Filter <- function(Table, Uniprot_id, GDC_native_seq, GDC_mut_seq,
   }
   
   for (n in 1:nrow(dfPTM_short1)){
-    print(n)
     otherlist = c()
     if (!(is.na(dfPTM_short1$other_start[n])) & !(is.na(dfPTM_short1$other_start[n]))){
       for (g in 1:length(dfPTM_short1$other_start[[n]])){
@@ -1602,7 +1629,6 @@ PTM_Filter <- function(Table, Uniprot_id, GDC_native_seq, GDC_mut_seq,
   #Get GDC peptide location within canonical sequence
   for (n in 1:nrow(Table)){
     if (Passed[n] == TRUE){
-      print(n)
       if (!(is.na(Mut_peptide[n])) & !(is.na(Native_peptide[n])) & !(is.na(GDC_native_seq[n])) & !(is.na(Native_canon_seq[n]))){
         if (GDC_native_seq[n] == Native_canon_seq[n]){
           start = as.numeric(Nat_Peptide_start[n])
@@ -1666,7 +1692,6 @@ PTM_Filter <- function(Table, Uniprot_id, GDC_native_seq, GDC_mut_seq,
   PTMcheck = rep(FALSE, nrow(Table))
   for (n in 1:nrow(Table)){
     if (Passed[n] == TRUE){
-      print(n)
       if ((!(is.na(dfPTM$Peptide_start[n]))) & (!(is.na(dfPTM$Peptide_end[n])))){
         if (!(TRUE %in% (dfPTM$PTM_List[[n]] %in% dfPTM$Peptide_start[n]:dfPTM$Peptide_end[n]))){
           PTMcheck[n] = TRUE
@@ -1679,7 +1704,6 @@ PTM_Filter <- function(Table, Uniprot_id, GDC_native_seq, GDC_mut_seq,
   #check if cleavage site is within range of peptide
   Cleavecheck = rep(FALSE, nrow(Table))
   for (n in 1:nrow(Table)){
-    print(n)
     if (Passed[n] == TRUE){
       if (is.na(dfPTM$Cleave_sites[n])){
         Cleavecheck[n] = TRUE
@@ -1698,7 +1722,6 @@ PTM_Filter <- function(Table, Uniprot_id, GDC_native_seq, GDC_mut_seq,
   #check if tryptic peptide is within mature sequence (outside of signal/propeptide, etc)
   othercheck = rep(FALSE, nrow(Table))
   for (n in 1:nrow(Table)){
-    print(n)
     if (Passed[n] == TRUE){
       if (is.na(dfPTM$Other_sites[n])){
         othercheck[n] = TRUE
@@ -1748,8 +1771,6 @@ SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_
       if (g > length(ids)){
         g = length(ids)
       }
-      print(n)
-      print(g)
       url <- paste("https://rest.uniprot.org/uniprotkb/search?query=accession%3A%28",
                    gsub(", ", "%20OR%20", toString(ids[n:g])),
                    "%29&format=json&size=500&fields=accession,ft_variant,xref_dbsnp",
@@ -1778,7 +1799,6 @@ SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_
     class(dfSNP_main$SNP_id) = "list"
     for (n in 1:nrow(Table)){
       if (Passed[n] == TRUE){
-        print(n)
         if (!(is.na(Mut_peptide[n])) & !(is.na(Native_peptide[n])) & !(is.na(GDC_native_seq[n])) & !(is.na(Native_canon_seq[n]))){
           if (GDC_native_seq[n] == Native_canon_seq[n]){
             start = as.numeric(Nat_Peptide_start[n])
@@ -1811,13 +1831,29 @@ SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_
     }
     dfSNP2 = rows_update(dfSNP_main, dfSNP, by = "Uniprot_id")
     
+    for(n in 1:nrow(dfSNP2)){
+      if(is.null(dfSNP2$SNP_loc[[n]])){
+        dfSNP2$SNP_loc[[n]] <- NA
+      }
+      if(is.null(dfSNP2$SNP_id[[n]])){
+        dfSNP2$SNP_id[[n]] <- NA
+      }
+    }
+    
     dfSNP2 = data.frame(dfSNP2, IDs_to_validate=NA, Passed=TRUE)
     for (n in 1:nrow(dfSNP2)){
-      print(n)
       if (!(is.na(dfSNP2$Peptide_start[n])) & !(is.na(dfSNP2$SNP_loc[n]))){
         if (length(dfSNP2$SNP_loc[[n]]) == length(dfSNP2$SNP_id[[n]])){
           index = c()
           for (g in 1:length(dfSNP2$SNP_loc[[n]])){
+            
+            # TEST <<- dfSNP2
+            # TEST2 <<- dfSNP_main
+            print(dfSNP2$Peptide_end[n])
+            print(dfSNP2$SNP_loc[[n]][g])
+            print(dfSNP2$SNP_loc[[n]][g])
+            dfSNP2$Peptide_start[n]
+            
             if ((dfSNP2$Peptide_end[n] >= dfSNP2$SNP_loc[[n]][g]) & (dfSNP2$SNP_loc[[n]][g] >= dfSNP2$Peptide_start[n])){
               index = c(index, g)
             }
@@ -1836,7 +1872,6 @@ SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_
     }
     
     for (n in 1:nrow(dfSNP2)){
-      print(n)
       for (g in 1:length(dfSNP2$IDs_to_validate[[n]])){
         if (!(is.na(dfSNP2$IDs_to_validate[[n]][g]))){
           dfSNP2$IDs_to_validate[[n]][g] = strsplit(dfSNP2$IDs_to_validate[[n]][g], "rs")[[1]][2]
@@ -1858,12 +1893,10 @@ SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_
     
     dfSNP3 = data.frame(IDs_to_validate=id_list, MAF=NA, Passed=NA)
     for (f in seq(1, length(dfSNP3$IDs_to_validate), 100)){
-      print(f)
       h = f+99
       if (h > length(dfSNP3$IDs_to_validate)){
         h = length(dfSNP3$IDs_to_validate)
       }
-      print(h)
       
       data = entrez_summary(db = "snp", id = dfSNP3$IDs_to_validate[f:h], always_return_list = TRUE, retmax = 10000)
       for (n in f:h){
@@ -1880,7 +1913,6 @@ SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_
     }
     
     for (n in 1:nrow(dfSNP3)){
-      print(n)
       if (length(grep(TRUE, is.na(dfSNP3$MAF[[n]]))) == 0){
         MAFs = strsplit(dfSNP3$MAF[[n]], "=")
         maf_list = c()
@@ -1905,7 +1937,6 @@ SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_
     }
     
     for (n in 1:nrow(dfSNP3)){
-      print(n)
       index = grep(dfSNP3$IDs_to_validate[n], dfSNP2$IDs_to_validate[checklist])
       index1 = checklist[index]
       for (g in index1){
@@ -1926,7 +1957,6 @@ Reference_peptide_list_generator = function(){
   files = list.files(path = "PeptideList/Reference/", pattern = "*.tsv", full.names = TRUE, recursive = FALSE)
   peptide_total_table = data.frame()
   for (n in files){
-    print(n)
     peptide_table = read.table(file = n, sep = '\t', header = TRUE)
     # peptide_table = Reference_peptide_curator(Table = peptide_table,
     #                                           Peptides_Column = peptide_table$Peptide.Sequence)
@@ -1966,7 +1996,6 @@ Reference_peptide_list_checker = function(Table, Peptides_column, Passed){
   index = grep(TRUE, Passed)
   Ref_pep_filter = rep(FALSE, nrow(Table))
   for (n in index){
-    print(n)
     if (Peptides_column[n] %in% ref_pep_list){
       Ref_pep_filter[n] = TRUE
     }
@@ -1982,7 +2011,6 @@ expasy_digestion_efficiency_check = function(Table, peptide_column, sequence_col
   index = grep(TRUE, passed_column)
   checklist = rep(FALSE, nrow(Table))
   for (n in index){
-    print(n)
     df3 = trypsin(sequence_column[n], FALSE, TRUE, TRUE)
     index2 = grep(peptide_column[n], df3$peptide, fixed = TRUE)
     if (length(index2) == 1){
@@ -2005,12 +2033,49 @@ expasy_digestion_efficiency_check = function(Table, peptide_column, sequence_col
   Table = cbind(Table, expasy=checklist)
   col_name = paste(label, "_dig_efficiency_filter", sep = "")
   names(Table)[names(Table) == 'expasy'] <- col_name
+  
+  rm(dig_table, envir = .GlobalEnv)
+  
   return(Table)
   
 }
 
+GRAVY_Calculator = function(Peptide_list){
+  AA_codes = list(c("Num_Ala", "A"), 
+                  c("Num_Arg", "R"),
+                  c("Num_Asn", "N"),
+                  c("Num_Asp", "D"),
+                  c("Num_Cys", "C"),
+                  c("Num_Glu", "E"),
+                  c("Num_Gln", "Q"),
+                  c("Num_Gly", "G"),
+                  c("Num_His", "H"),
+                  c("Num_Ile", "I"),
+                  c("Num_Leu", "L"),
+                  c("Num_Lys", "K"),
+                  c("Num_Met", "M"),
+                  c("Num_Phe", "F"),
+                  c("Num_Pro", "P"),
+                  c("Num_Ser", "S"),
+                  c("Num_Thr", "T"),
+                  c("Num_Trp", "W"),
+                  c("Num_Tyr", "Y"),
+                  c("Num_Val", "V"))
+  
+  for (n in 1:length(AA_codes)){
+    x = lengths(regmatches(Peptide_list, gregexpr(AA_codes[[n]][2], Peptide_list)))
+    do.call("<-", list(AA_codes[[n]][1], x)) 
+  }
+  l = nchar(Peptide_list, keepNA = F)
+  GRAVY = ((Num_Ala*1.8)+(Num_Arg*-4.5)+(Num_Asn*-3.5)+(Num_Asp*-3.5)+(Num_Cys*2.5)+
+             (Num_Gln*-3.5)+(Num_Glu*-3.5)+(Num_Gly*-0.4)+(Num_His*-3.2)+(Num_Ile*4.5)+
+             (Num_Leu*3.8)+(Num_Lys*-3.9)+(Num_Met*1.9)+(Num_Phe*2.8)+(Num_Pro*-1.6)+
+             (Num_Ser*-0.8)+(Num_Thr*-0.7)+(Num_Trp*-0.9)+(Num_Tyr*-1.3)+(Num_Val*4.2))/(l)
+  GRAVY = round(GRAVY, 2)
+  return(GRAVY)
+}
 #General full mutation function
-mutation_processor = function(Table, session){
+mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   #Needed columns
   #transcript_id, Uniprot id, hgvsc, hgvsp, Consequence
   #or
@@ -2019,79 +2084,98 @@ mutation_processor = function(Table, session){
   
   #first, check that all api are running
   #uniprot, ensembl, dbsnp,
-  
-  if(!check_api_running()){
-    updateProgressBar(status = "danger",
-                      session = session,
-                      id = "pb2",
-                      status = "custom2",
-                      value = 1, total = 20,
-                      title = paste("Failed, API Unreachable")
+
+  if(progress_bar_show==TRUE){
+    if(!check_api_running()){
+      updateProgressBar(status = "danger",
+                        session = session,
+                        id = "pb2",
+                        status = "custom2",
+                        value = 1, total = 20,
+                        title = paste("Failed, API Unreachable")
+      )
+      break
+    }
+  }
+
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 1, total = 20,
+      title = paste("Process")
     )
-    break 
   }
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 1, total = 20,
-    title = paste("Process")
-  )
+  if(nrow(Table) != 1){
+    Table2 = data.frame(order = c(1:nrow(Table)), Table)
+  }else{
+    Table2 = cbind(Table, order=1)
+  }
   
-  Table2 = data.frame(order = c(1:nrow(Table)), Table)
-  Table2 = Ensembl_Gene_id_retreiver(Table2, Table2$transcript_id)
+  if(FALSE %in% is.na(Table2$transcript_id)){
+    Table2 = Ensembl_Gene_id_retreiver(Table2, Table2$transcript_id)
+  }else{
+    Table2 = cbind(Table2, Gene_id=NA)
+  }
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 2, total = 20,
-    title = paste("Process")
-  )
+  Table2 = Table2[which(!(is.na(Table2$order))),]
+  rownames(Table2) = NULL
+  
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 2, total = 20,
+      title = paste("Process")
+    )
+  }
+  
+  class(Table2$transcript_id) <- "character"
+  class(Table2$Uniprot_id) <- "character"
+  class(Table2$HGVSC) <- "character"
+  class(Table2$HGVSP) <- "character"
+  class(Table2$order) <- "numeric"
+  class(Table2$Gene_id) <- "character"
   
   Table2 = Uniprot_to_ensembl_gene_id(Table2, Table2$Uniprot_id)
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 3, total = 20,
-    title = paste("Process")
-  )
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 3, total = 20,
+      title = paste("Process")
+    )
+  }
   
   Table2 = Ensembl_to_Uniprot_Canonical_finder(Table2, Table2$Gene_id)
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 4, total = 20,
-    title = paste("Process")
-  )
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 4, total = 20,
+      title = paste("Process")
+    )
+  }
   
-  index = grep(TRUE, (colnames(Table2) == "Uniprot_id.x"))
+  index = which(colnames(Table2) == "Uniprot_id.y")
+  index2 = which(is.na(Table2$Uniprot_id.x))
+  
+  if(length(index2) != 0){
+    Table2$Uniprot_id.x[index2] <- Table2$Uniprot_id.y[index2]
+  }
+  
   if(length(index) != 0){
     Table2 = Table2[,-c(index)]
-    names(Table2)[names(Table2) == 'Uniprot_id.y'] <- 'Uniprot_id'
+    names(Table2)[names(Table2) == 'Uniprot_id.x'] <- 'Uniprot_id'
   }
-  Table2 = Ensembl_protein_sequence_retreiver(Table2, Table2$transcript_id)
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 5, total = 20,
-    title = paste("Process")
-  )
-  
-  names(Table2)[names(Table2) == 'seq'] <- 'Native_sequence'
-  index = grep(TRUE, is.na(Table2$transcript_id))
-  if(length(index != 0)){
-    Table2$Native_sequence[index] = Table2$Native_Canonical_Sequence[index]
-  }
-  Table2 = Table2[order(Table2$order),]
-  rownames(Table2) = NULL
   
   geneids = strsplit(Table2$Gene_id, ".", fixed = TRUE)
   list = c()
@@ -2101,20 +2185,70 @@ mutation_processor = function(Table, session){
   Table2$Gene_id = list
   Table2 = Ensembl_Gene_id_to_transcript_id(Table2, Table2$Gene_id)
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 6, total = 20,
-    title = paste("Process")
-  )
-  
   geneids = strsplit(Table2$transcript_id, ".", fixed = TRUE)
   list = c()
   for(n in 1:length(geneids)){
     list = c(list, geneids[[n]][1])
   }
   Table2$transcript_id = list
+  
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 5, total = 20,
+      title = paste("Process")
+    )
+  }
+  
+  Table2 = Ensembl_protein_sequence_retreiver(Table2, Table2$transcript_id)
+  
+  tmp <- More_Uniprot_info(Table = Table2, ids = Table$Uniprot_id, Merge_output = F, 
+                    search_fields = c("accession", "organism_name", "protein_name", 'reviewed',"id", "gene_names", "length", "sequence"))
+  
+  colnames(tmp) <- gsub(pattern = "Sequence", replacement = "Native_Canonical_Sequence", x = colnames(tmp))
+  
+  index = colnames(tmp) %in% colnames(Table2)
+  tmp = tmp[,index]
+  
+  class(Table2$Consequence) <- "character"
+  class(Table2$Organism) <- "character"
+  class(Table2$Protein.names) <- "character"
+  class(Table2$Reviewed) <- "character"
+  class(Table2$Entry.Name) <- "character"
+  class(Table2$Gene.Names) <- "character"
+  class(Table2$Length) <- "integer"
+  class(Table2$Native_Canonical_Sequence) <- "character"
+  
+  names(Table2)[names(Table2) == 'Uniprot_id.x'] <- 'Uniprot_id'
+  Table2 = rows_patch(x = Table2, y = tmp, by = "Uniprot_id")
+  
+  if(!("seq" %in% colnames(Table2))){
+    Table2 = cbind(Table2, seq=NA)
+  }
+  
+  index = which(is.na(Table2$seq))
+  Table2$seq[index] <- Table2$Native_Canonical_Sequence[index]
+  
+  
+  names(Table2)[names(Table2) == 'seq'] <- 'Native_sequence'
+  index = grep(TRUE, is.na(Table2$transcript_id))
+  if(length(index != 0)){
+    Table2$Native_sequence[index] = Table2$Native_Canonical_Sequence[index]
+  }
+  Table2 = Table2[order(Table2$order),]
+  rownames(Table2) = NULL
+  
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 6, total = 20,
+      title = paste("Process")
+    )
+  }
   
   #get mutants
   #MSI
@@ -2181,16 +2315,19 @@ mutation_processor = function(Table, session){
     }
   }
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 7, total = 20,
-    title = paste("Process")
-  )
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 7, total = 20,
+      title = paste("Process")
+    )
+  }
   
   #validation 1 (wt)
   Table2 = data.frame(Table2, Mutation_validation_1 = NA)
+
   for(n in 1:nrow(Table2)){
     Table2$Mutation_validation_1[n] = Validation_checker_1(hgvsp = Table2$HGVSP[n], 
                                                            WT_seq = Table2$Native_sequence[n])
@@ -2207,7 +2344,6 @@ mutation_processor = function(Table, session){
   #pass
   Table2 = data.frame(Table2, Pass = NA)
   for (n in 1:nrow(Table2)){
-    print(n)
     if (!(is.na(Table2$Mutation_validation_1[n])) & !(is.na(Table2$Mutation_validation_2[n]))){
       if ((Table2$Mutation_validation_1[n]) & (Table2$Mutation_validation_2[n])){
         Table2$Pass[n] = TRUE
@@ -2219,26 +2355,28 @@ mutation_processor = function(Table, session){
     }
   }
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 8, total = 20,
-    title = paste("Process")
-  )
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 8, total = 20,
+      title = paste("Process")
+    )
+  }
   
   #mutant peptides
   index = which(Table2$Pass == TRUE)
   
-  Table2 = data.frame(Table2, Mutant_Tryptic_Peptide=NA)
+  Table2 = data.frame(Table2, variant_tryptic_peptide=NA)
   for (n in index){
-    Table2$Mutant_Tryptic_Peptide[n] <- MSIIFS_pep_generator(hgvsp = Table2$HGVSP[n],
+    Table2$variant_tryptic_peptide[n] <- MSIIFS_pep_generator(hgvsp = Table2$HGVSP[n],
                                                              Var_seq = Table2$Mutant_sequence[n],
                                                              return = "peptide")
   }
   
   #Generate Native GDC tryptic peptide for comparison with mutants
-  Table2 = data.frame(Table2, Native_Tryptic_Peptide=NA)
+  Table2 = data.frame(Table2, WT_tryptic_peptide=NA)
   Table2 = data.frame(Table2, Peptide_start=NA)
   Table2 = data.frame(Table2, Peptide_end=NA)
   for (n in index){
@@ -2246,50 +2384,53 @@ mutation_processor = function(Table, session){
                               Var_seq = Table2$Native_sequence[n],
                               return = "All")
     
-    Table2$Native_Tryptic_Peptide[n] <- x[1]
+    Table2$WT_tryptic_peptide[n] <- x[1]
     Table2$Peptide_start[n] <- x[2]
     Table2$Peptide_end[n] <- x[3]
   }
   
   main_index = which(Table2$Pass == TRUE)
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 9, total = 20,
-    title = paste("Process")
-  )
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 9, total = 20,
+      title = paste("Process")
+    )
+  }
   
   #Check if native peptide is anywhere in canonical native peptide digestion table
   #(is this a mutation that could happen in the canonical?)
   Table2 = data.frame(Table2, Canonical_check=NA)
   
   for (n in main_index){
-    print(n)
-    if(!(is.na(Table2$Native_Canonical_Sequence[n])) & !(is.na(Table2$Native_Tryptic_Peptide[n]))){
+    if(!(is.na(Table2$Native_Canonical_Sequence[n])) & !(is.na(Table2$WT_tryptic_peptide[n]))){
       df3 = trypsin(Table2$Native_Canonical_Sequence[n], TRUE, FALSE, FALSE)
-      Table2$Canonical_check[n] <- Table2$Native_Tryptic_Peptide[n] %in% df3$peptide
+      Table2$Canonical_check[n] <- Table2$WT_tryptic_peptide[n] %in% df3$peptide
     }else{
       Table2$Canonical_check[n] <- FALSE
     }
   }
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 10, total = 20,
-    title = paste("Process")
-  )
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 10, total = 20,
+      title = paste("Process")
+    )
+  }
   
   #Check if mutant typtic peptide is unique vs wt digestion table
   Table2 = data.frame(Table2, Unique_check_1=NA)
   
   for (n in main_index){
-    if(!(is.na(Table2$Native_sequence[n])) & !(is.na(Table2$Mutant_Tryptic_Peptide[n]))){
+    if(!(is.na(Table2$Native_sequence[n])) & !(is.na(Table2$variant_tryptic_peptide[n]))){
       df3 = trypsin(Table2$Native_sequence[n], TRUE, TRUE, FALSE)
-      Table2$Unique_check_1[n] <- !(Table2$Mutant_Tryptic_Peptide[n] %in% df3$peptide)
+      Table2$Unique_check_1[n] <- !(Table2$variant_tryptic_peptide[n] %in% df3$peptide)
     }else{
       Table2$Unique_check_1[n] <- FALSE
     }
@@ -2299,9 +2440,9 @@ mutation_processor = function(Table, session){
   
   #Check if WT typtic peptide is unique vs Variant digestion table
   for (n in main_index){
-    if(!(is.na(Table2$Mutant_sequence[n])) & !(is.na(Table2$Native_Tryptic_Peptide[n])) & (Table2$Mutant_sequence[n] != "")){
+    if(!(is.na(Table2$Mutant_sequence[n])) & !(is.na(Table2$WT_tryptic_peptide[n])) & (Table2$Mutant_sequence[n] != "")){
       df3 = trypsin(Table2$Mutant_sequence[n], TRUE, TRUE, FALSE)
-      Table2$Unique_check_2[n] <- !(Table2$Native_Tryptic_Peptide[n] %in% df3$peptide)
+      Table2$Unique_check_2[n] <- !(Table2$WT_tryptic_peptide[n] %in% df3$peptide)
     }else{
       Table2$Unique_check_2[n] <- FALSE
     }
@@ -2309,177 +2450,191 @@ mutation_processor = function(Table, session){
   
   rm(df3)
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 11, total = 20,
-    title = paste("Process")
-  )
-  
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 11, total = 20,
+      title = paste("Process")
+    )
+  }
   
   #Additional Filters
   #Filter peptide by length (7-25)
   
-  Table2 <- Length_Filter(Table2, Table2$Mutant_Tryptic_Peptide, Peptide_type = "Mutant", 7, 25)
-  Table2 <- Length_Filter(Table2, Table2$Native_Tryptic_Peptide, Peptide_type = "Native", 7, 25)
+  Table2 <- Length_Filter(Table2, Table2$variant_tryptic_peptide, Peptide_type = "Mutant", 7, 25)
+  Table2 <- Length_Filter(Table2, Table2$WT_tryptic_peptide, Peptide_type = "Native", 7, 25)
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 12, total = 20,
-    title = paste("Process")
-  )
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 12, total = 20,
+      title = paste("Process")
+    )
+  }
   
   #Filter peptide by absense of n-terminal glutamine
   
-  Table2 <- N_Term_Gln_Filter(Table2, Table2$Mutant_Tryptic_Peptide, Peptide_type = "Mutant")
-  Table2 <- N_Term_Gln_Filter(Table2, Table2$Native_Tryptic_Peptide, Peptide_type = "Native")
+  Table2 <- N_Term_Gln_Filter(Table2, Table2$variant_tryptic_peptide, Peptide_type = "Mutant")
+  Table2 <- N_Term_Gln_Filter(Table2, Table2$WT_tryptic_peptide, Peptide_type = "Native")
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 13, total = 20,
-    title = paste("Process")
-  )
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 13, total = 20,
+      title = paste("Process")
+    )
+  }
   
   #Filter peptide by absense some residue (C M, W) and pairs (DG, DP, NG, QG) (PPP,PPG)
   
   reslist = c("C", "M", "W", "DG", "DP", "NG", "QG", "PPP", "PPG", "SS")
   for (n in reslist){
     Table2 <- Residue_Filter(Table = Table2,
-                             Peptides_Column = Table2$Mutant_Tryptic_Peptide, 
+                             Peptides_Column = Table2$variant_tryptic_peptide, 
                              Residue_to_Filter = n,
                              Peptide_type = "Mutant")
   }
   
   for (n in reslist){
     Table2 <- Residue_Filter(Table = Table2,
-                             Peptides_Column = Table2$Native_Tryptic_Peptide, 
+                             Peptides_Column = Table2$WT_tryptic_peptide, 
                              Residue_to_Filter = n,
                              Peptide_type = "Native")
   }
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 14, total = 20,
-    title = paste("Process")
-  )
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 14, total = 20,
+      title = paste("Process")
+    )
+  }
   
   #compare native peptide against isoforms
-  print("iso")
   Table2 = Isoform_filter(Table = Table2,
                           Uniprot_ids = Table2$Uniprot_id, 
-                          Tryptic_peptides = Table2$Native_Tryptic_Peptide, 
+                          Tryptic_peptides = Table2$WT_tryptic_peptide, 
                           Passed = Table2$Pass)
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 15, total = 20,
-    title = paste("Process")
-  )
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 15, total = 20,
+      title = paste("Process")
+    )
+  }
   
   #check for mutant peptide uniqueness among human proteome
   #temp_pass = !(is.na(Table2$Isoforms))
-  print("human prot")
-  Table2 <- Human_proteome_filter(Table2, Table2$Mutant_Tryptic_Peptide, Passed = Table2$Pass, Allowance = rep(0, nrow(Table2)), Peptide_type = "Mutant")
-  Table2 <- Human_proteome_filter(Table2, Table2$Native_Tryptic_Peptide, Passed = Table2$Pass, Allowance = Table2$Isoforms, Peptide_type = "Native")
+  Table2 <- Human_proteome_filter(Table2, Table2$variant_tryptic_peptide, Passed = Table2$Pass, Allowance = rep(0, nrow(Table2)), Peptide_type = "Mutant")
+  Table2 <- Human_proteome_filter(Table2, Table2$WT_tryptic_peptide, Passed = Table2$Pass, Allowance = Table2$Isoforms, Peptide_type = "Native")
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 16, total = 20,
-    title = paste("Process")
-  )
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 16, total = 20,
+      title = paste("Process")
+    )
+  }
   
   #check for PTMs AND Cleave sites AND Main Chain in peptide region
-  print("ptm")
   Table2 <- PTM_Filter(Table = Table2,
                        Uniprot_id = Table2$Uniprot_id, 
                        GDC_native_seq = Table2$Native_sequence, 
                        GDC_mut_seq = Table2$Mutant_sequence, 
                        Native_canon_seq = Table2$Native_Canonical_Sequence, 
-                       Native_peptide = Table2$Native_Tryptic_Peptide, 
-                       Mut_peptide = Table2$Mutant_Tryptic_Peptide, 
+                       Native_peptide = Table2$WT_tryptic_peptide, 
+                       Mut_peptide = Table2$variant_tryptic_peptide, 
                        AA_change = Table2$HGVSP, 
                        Nat_Peptide_start = Table2$Peptide_start,
                        Nat_Peptide_end = Table2$Peptide_end,
                        Passed = Table2$Pass)
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 17, total = 20,
-    title = paste("Process")
-  )
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 17, total = 20,
+      title = paste("Process")
+    )
+  }
   
   #check peptides for any significant (>1%) natual variants (SNPs)
-  print("snp")
   Table2 = SNP_filter(Table = Table2, 
                       Uniprot_ids = Table2$Uniprot_id, 
                       GDC_native_seq = Table2$Native_sequence, 
                       Native_canon_seq = Table2$Native_Canonical_Sequence, 
-                      Mut_peptide = Table2$Mutant_Tryptic_Peptide, 
-                      Native_peptide = Table2$Native_Tryptic_Peptide, 
+                      Mut_peptide = Table2$variant_tryptic_peptide, 
+                      Native_peptide = Table2$WT_tryptic_peptide, 
                       Nat_Peptide_start = Table2$Peptide_start, 
                       Nat_Peptide_end = Table2$Peptide_end, 
                       Passed = Table2$Pass)
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 18, total = 20,
-    title = paste("Process")
-  )
-  
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 18, total = 20,
+      title = paste("Process")
+    )
+  }
+    
   #check if peptides have been observed previously in literature (PeptideAtlas, GPMdb)
-  print("ref")
   Table2 = Reference_peptide_list_checker(Table = Table2, 
-                                          Peptides_column = Table2$Native_Tryptic_Peptide,
+                                          Peptides_column = Table2$WT_tryptic_peptide,
                                           Passed = Table2$Pass)
   
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 19, total = 20,
-    title = paste("Process")
-  )
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 19, total = 20,
+      title = paste("Process")
+    )
+  }
   
   #check digestion efficiency is above 10% with expasy peptidecutter
   
-  temp_pass = !(is.na(Table2$Mutant_Tryptic_Peptide))
+  temp_pass = !(is.na(Table2$variant_tryptic_peptide))
   Table2 = expasy_digestion_efficiency_check(Table = Table2,
-                                             peptide_column = Table2$Mutant_Tryptic_Peptide,
+                                             peptide_column = Table2$variant_tryptic_peptide,
                                              sequence_column = Table2$Mutant_sequence,
                                              passed_column = temp_pass,
                                              min_efficiency = 0.1,
                                              label = "Mutant")
   
-  temp_pass = !(is.na(Table2$Native_Tryptic_Peptide))
+  temp_pass = !(is.na(Table2$WT_tryptic_peptide))
   Table2 = expasy_digestion_efficiency_check(Table = Table2,
-                                             peptide_column = Table2$Native_Tryptic_Peptide,
+                                             peptide_column = Table2$WT_tryptic_peptide,
                                              sequence_column = Table2$Native_sequence, 
                                              passed_column = temp_pass,
                                              min_efficiency = 0.1,
                                              label = "Native")
-  updateProgressBar(
-    session = session,
-    status = "custom",
-    id = "pb2",
-    value = 20, total = 20,
-    title = paste("Process")
-  )
-  
+  if(progress_bar_show==TRUE){
+    updateProgressBar(
+      session = session,
+      status = "custom",
+      id = "pb2",
+      value = 20, total = 20,
+      title = paste("Process")
+    )
+  }
+    
   Table2[!Table2$Pass, c("Canonical_check","Unique_check_1", "Unique_check_2","Mutant_Length_Filter","Native_Length_Filter",
                          "Mutant_N_Gln_Filter","Native_N_Gln_Filter","Mutant_C_Filter","Mutant_M_Filter",
                          "Mutant_W_Filter","Mutant_DG_Filter","Mutant_DP_Filter","Mutant_NG_Filter",
@@ -2490,6 +2645,78 @@ mutation_processor = function(Table, session){
                          "Native_Unique_in_Proteome","PTM_filter","Cleave_site_filter","In_Main_Chain",
                          "SNP_filter","Peptide_Exists_Filter","Mutant_dig_efficiency_filter",
                          "Native_dig_efficiency_filter")] <- FALSE
+  
+  #more ext ids
+  
+  Table2 = More_Uniprot_info(Table2,
+                             Table2$Uniprot_id, 
+                             search_fields = c("accession", 'reviewed', "mass", 
+                                               "go_p", "go_c", "go_f", "cc_subcellular_location", 
+                                               "xref_intact", "xref_string", "xref_dbsnp", "xref_kegg", 
+                                               "xref_peptideatlas", "xref_ensembl", "xref_disgenet"))
+  
+                          
+  cols = c("transcript_id", "Gene_id", "HGVSC", "HGVSP", "Consequence", "Uniprot_id", "Organism", 
+           "Protein.names", "Entry.Name", "Gene.Names", "Length", "Native_Canonical_Sequence", 
+           "Native_sequence", "Mutant_sequence", "Mutation_validation_1", "Mutation_validation_2", 
+           "Pass", "variant_tryptic_peptide", "WT_tryptic_peptide", "Peptide_start", "Peptide_end", "Isoforms",
+           
+           "Entry", "Mass", "Gene.Ontology..biological.process.", "Gene.Ontology..cellular.component.", 
+           "Gene.Ontology..molecular.function.", "Subcellular.location..CC.", "IntAct", 
+           "STRING", "dbSNP", "KEGG", "PeptideAtlas", "Ensembl","DisGeNET",
+           
+           "Canonical_check", "Unique_check_1", "Unique_check_2", "Mutant_Length_Filter", 
+           "Native_Length_Filter", "Mutant_N_Gln_Filter", "Native_N_Gln_Filter", "Mutant_C_Filter", 
+           "Mutant_M_Filter", "Mutant_W_Filter", "Mutant_DG_Filter", "Mutant_DP_Filter", "Mutant_NG_Filter", 
+           "Mutant_QG_Filter", "Mutant_PPP_Filter", "Mutant_PPG_Filter", "Mutant_SS_Filter", "Native_C_Filter", 
+           "Native_M_Filter", "Native_W_Filter", "Native_DG_Filter", "Native_DP_Filter", "Native_NG_Filter", 
+           "Native_QG_Filter", "Native_PPP_Filter", "Native_PPG_Filter", "Native_SS_Filter", "Isoform_check", 
+           "Mutant_Unique_in_Proteome", "Native_Unique_in_Proteome", "PTM_filter", 
+           "Cleave_site_filter", "In_Main_Chain", "SNP_filter", "Peptide_Exists_Filter", 
+           "Mutant_dig_efficiency_filter", "Native_dig_efficiency_filter")
+  
+  Table2 = Table2[,cols]
+  
+  cols_good = c("Transcript_id", "Gene_id", "HGVSC", "HGVSP", "Consequence", "Uniprot_id", "Organism", 
+                "Protein.names", "Entry.Name", "Gene.Names", "Length", "WT_Canonical_Sequence", 
+                "WT_sequence", "Variant_sequence", "Mutation_validation_1", "Mutation_validation_2", 
+                "Pass", "Variant_tryptic_peptide", "WT_tryptic_peptide", "Peptide_start", "Peptide_end", "Isoforms",
+                
+                "Entry", "Mass", "Gene.Ontology..biological.process.", "Gene.Ontology..cellular.component.", 
+                "Gene.Ontology..molecular.function.", "Subcellular.location..CC.", "IntAct", 
+                "STRING", "dbSNP", "KEGG", "PeptideAtlas", "Ensembl","DisGeNET",
+                
+                "Canonical_check", "Unique_check_1", "Unique_check_2", "Variant_Length_Filter", 
+                "WT_Length_Filter", "Variant_N_Gln_Filter", "WT_N_Gln_Filter", "Variant_C_Filter", 
+                "Variant_M_Filter", "Variant_W_Filter", "Variant_DG_Filter", "Variant_DP_Filter", "Variant_NG_Filter", 
+                "Variant_QG_Filter", "Variant_PPP_Filter", "Variant_PPG_Filter", "Variant_serine_str_Filter", "WT_C_Filter", 
+                "WT_M_Filter", "WT_W_Filter", "WT_DG_Filter", "WT_DP_Filter", "WT_NG_Filter", 
+                "WT_QG_Filter", "WT_PPP_Filter", "WT_PPG_Filter", "WT_serine_str_Filter", "Isoform_check", 
+                "Variant_Unique_in_Proteome", "WT_Unique_in_Proteome", "PTM_filter", 
+                "Cleave_site_filter", "In_Main_Chain", "SNP_filter", "Peptide_Exists_Filter", 
+                "Variant_dig_efficiency_filter", "WT_dig_efficiency_filter")
+  
+  colnames(Table2) <- cols_good
+
+  #add gravy scores
+  Table2 <- data.frame(
+    Table2[,c(1:18)],
+    Variant_GRAVY = GRAVY_Calculator(Peptide_list = Table2$Variant_tryptic_peptide),
+    WT_tryptic_peptide=Table2[,c(19)],
+    WT_GRAVY = GRAVY_Calculator(Peptide_list = Table2$WT_tryptic_peptide),
+    Table2[,c(20:length(Table2))]
+  )
+  
+  class(Table2$IntAct) <- "character"
+  class(Table2$STRING) <- "character"
+  class(Table2$PeptideAtlas) <- "character"
+  
+  #some cleaning
+  for (n in 1:nrow(Table2)){
+    Table2$IntAct[n] = strsplit(Table2$IntAct[n], split = ";", fixed = T)[[1]][1]
+    Table2$STRING[n] = strsplit(Table2$STRING[n], split = ";", fixed = T)[[1]][1]
+    Table2$PeptideAtlas[n] = strsplit(Table2$PeptideAtlas[n], split = ";", fixed = T)[[1]][1]
+  }
   
   return(Table2)
 }
