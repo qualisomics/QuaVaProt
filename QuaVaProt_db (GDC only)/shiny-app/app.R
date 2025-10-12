@@ -14,82 +14,104 @@ library(RSQLite)
 
 #funtions
 search_all_DB_table_cols <- function(DB, Table_name, search_term, col_searched, col_returned){
-  search_term = paste('%', search_term, '%', sep = "")
-  checklist = colnames(dbGetQuery(DB, paste("SELECT * FROM", Table_name, "WHERE 1=0")))
-  col_returned = checklist[col_returned]
-  col_returned = paste(col_returned, collapse = ",")
-  search_string = paste('SELECT', col_returned, 'FROM', Table_name, 'WHERE')
-  checklist = checklist[col_searched]
-  checklist = paste("[", checklist, "] LIKE {search*}", sep = "")
-  n = paste(checklist, collapse = " OR ")
-  query_sql = paste(search_string, n)
-  query_sql <- glue::glue_sql(query_sql,
-                              search = c(search_term),
-                              .con = DB)
-  results = dbGetQuery(DB, query_sql)
+  if(grepl("fts", Table_name, fixed = T)){
+    results <- dbGetQuery(DB, 
+                          paste("SELECT ", col_returned, " FROM ", Table_name, " WHERE ", col_searched, " MATCH ?", sep = ""), 
+                          params = list(search_term))
+  }else{
+    results <- dbGetQuery(DB, 
+                          paste("SELECT ", col_returned, " FROM ", Table_name, " WHERE ", col_searched, " = ?", sep = ""), 
+                          params = list(search_term))
+  }
+  
+  
+  
+  # search_term = paste('%', search_term, '%', sep = "")
+  # checklist = colnames(dbGetQuery(DB, paste("SELECT * FROM", Table_name, "WHERE 1=0")))
+  # col_returned = checklist[col_returned]
+  # col_returned = paste(col_returned, collapse = ",")
+  # search_string = paste('SELECT', col_returned, 'FROM', Table_name, 'WHERE')
+  # checklist = checklist[col_searched]
+  # checklist = paste("[", checklist, "] LIKE {search*}", sep = "")
+  # n = paste(checklist, collapse = " OR ")
+  # query_sql = paste(search_string, n)
+  # query_sql <- glue::glue_sql(query_sql,
+  #                             search = c(search_term),
+  #                             .con = DB)
+  # results = dbGetQuery(DB, query_sql)
   return(results)
 }
 query_function = function(DB, table, col_searched, col_returned, search_id, query){
-  col_list = colnames(dbGetQuery(DB, paste("SELECT * FROM", table, "WHERE 1=0")))
+  col_list = colnames(dbGetQuery(DB, paste("SELECT * FROM ", table, " WHERE 1=0")))
   if (search_id == 1){
-    index = search_all_DB_table_cols(DB, table, query, col_searched, col_returned)
+    #index = search_all_DB_table_cols(DB, table, query, col_searched, col_returned)
+    search_string = paste("SELECT row_names FROM ", table, " WHERE ", table, " MATCH ?", sep = "")
+    index = dbGetQuery(DB, search_string,
+                     params = list(query))
   }else{
     if(search_id == 2){
-      col = "Protein_Names"
+      col = "[Protein_Names]"
     }else if (search_id == 3){
-      col = "Uniprot_id"
+      col = "[Uniprot_id]"
     }else if (search_id == 4){
-      col = "Gene_Names"
+      col = "[Gene_Names]"
     }else if (search_id == 5){
-      col = "HGVSC"
+      col = "[HGVSC]"
     }else if (search_id == 6){
-      col = "HGVSP"
+      col = "[HGVSP]"
     }else if (search_id == 7){
-      col = "Consequence"
+      col = "[Consequence]"
     }else if (search_id == 8){
-      col = "Mutant_Tryptic_Peptide"
+      col = "[Mutant_Tryptic_Peptide]"
     }else if (search_id == 9){
-      col = "Gene.Ontology..biological.process."
+      col = "[Gene.Ontology..biological.process.]"
     }else if (search_id == 10){
-      col = "Gene.Ontology..cellular.component."
+      col = "[Gene.Ontology..cellular.component.]"
     }else if (search_id == 11){
-      col = "Gene.Ontology..molecular.function."
+      col = "[Gene.Ontology..molecular.function.]"
     }else if (search_id == 12){
-      col = "Subcellular.location..CC."
+      col = "[Subcellular.location..CC.]"
     }
-    col_search = which(col == col_list)
-    index = search_all_DB_table_cols(DB, table, query, col_search, col_returned)
+    # col_search = which(col == col_list)
+    # index = search_all_DB_table_cols(DB, table, query, col_search, col_returned)
+    search_string = paste("SELECT row_names FROM GDC_short_fts WHERE ", col," MATCH ?", sep = "")
+    index = dbGetQuery(DB, search_string, params = list(query))
+    
   }
   return(index)
 }
 query_IDs <- function(DB, Table_name, search, search_col){
-  search_string = paste("SELECT * FROM", Table_name, "WHERE ", search_col,"={conc_ID*};")
-  if(length(search) > 999){
-    results = data.frame()
-    for (f in seq(1, length(search), 999)){
-      g = f+998
-      if (g > length(search)){
-        g = length(search)
-      }
-      query_sql <- glue::glue_sql(search_string,
-                                  conc_ID = c(search[f:g]),
-                                  .con = DB)
-      col = paste(" OR ", search_col, "=", sep="")
-      query_sql = gsub(", ",col , query_sql, fixed = T)
-      conc_query = dbSendQuery(DB, query_sql)
-      results1 = dbFetch(conc_query)
-      results = rbind(results, results1)
-      dbClearResult(conc_query)
-    }
-  }else{
-    query_sql <- glue::glue_sql(search_string,
-                                conc_ID = c(search),
-                                .con = DB)
-    query_sql = gsub(", ", " OR row_names=", query_sql, fixed = T)
-    conc_query = dbSendQuery(DB, query_sql)
-    results = dbFetch(conc_query)
-    dbClearResult(conc_query)
-  }
+  query_string = paste("SELECT * FROM ", Table_name, " WHERE ", search_col, " = ?", sep = "")
+  results <- dbGetQuery(DB, 
+                       query_string, 
+                       params = list(search))
+  # search_string = paste("SELECT * FROM", Table_name, "WHERE ", search_col,"={conc_ID*};")
+  # if(length(search) > 999){
+  #   results = data.frame()
+  #   for (f in seq(1, length(search), 999)){
+  #     g = f+998
+  #     if (g > length(search)){
+  #       g = length(search)
+  #     }
+  #     query_sql <- glue::glue_sql(search_string,
+  #                                 conc_ID = c(search[f:g]),
+  #                                 .con = DB)
+  #     col = paste(" OR ", search_col, "=", sep="")
+  #     query_sql = gsub(", ",col , query_sql, fixed = T)
+  #     conc_query = dbSendQuery(DB, query_sql)
+  #     results1 = dbFetch(conc_query)
+  #     results = rbind(results, results1)
+  #     dbClearResult(conc_query)
+  #   }
+  # }else{
+  #   query_sql <- glue::glue_sql(search_string,
+  #                               conc_ID = c(search),
+  #                               .con = DB)
+  #   query_sql = gsub(", ", " OR row_names=", query_sql, fixed = T)
+  #   conc_query = dbSendQuery(DB, query_sql)
+  #   results = dbFetch(conc_query)
+  #   dbClearResult(conc_query)
+  # }
   return(results)
 }
 
@@ -159,6 +181,8 @@ ui <-
 # Define server logic ----
 server <- function(input, output, session) {
   
+  version = "2025-10-12"
+  
   #URL
   shiny_port = reactive(
     session$clientData$url_port
@@ -212,6 +236,15 @@ server <- function(input, output, session) {
               strong("Help"),
               height = 40,
               href = "?page=help",
+              title = ""
+            )
+          ),
+          nav_item(
+            tags$a(
+              icon("users"),
+              strong("About"),
+              height = 40,
+              href = "?page=about",
               title = ""
             )
           ),
@@ -295,59 +328,56 @@ server <- function(input, output, session) {
               mainPanel(
                 fluidRow(
                   layout_columns(
-                    col_widths = c(5,2,5,6,6),
-                    style = "background-color:#EFEDEC;padding:25px; border-radius: 10px !important; border: 2px solid;",
+                    col_widths = c(11,-1),
                     card(
-                      style = "border-radius: 10px;",
                       if(query$data_set=="GDC"){
-                        card_header(h1(strong("QuaVaProt: NCI-GDC")),
-                                    align = "center")
+                        card_header(
+                          style = "border: 1px outset #458b74; background-color: #0088cc;",
+                          h1("QuaVaProt: NCI-GDC"), style = "color: white;")
                       }else if(query$data_set=="COSMIC"){
-                        card_header(h1(strong("QuaVaProt: COSMIC")),
-                                    align = "center")
+                        card_header(
+                          style = "border: 1px outset #458b74; background-color: #0088cc;",
+                          h1("QuaVaProt: COSMIC", style = "color: white;"))
                       },
                       card_body(
-                        h3("QuaVaProt is a resource centered on predicting and 
-                    characterizing peptides containing variations, while providing 
-                    adjacent annotations and references, allowing for a streamlined 
-                    approach to selecting peptide targets for quantitative proteomic 
-                    assay developement."),
-                        align = "justify"
-                      )),
-                    layout_columns(
-                      col_widths = c(12,12),
-                      style = "background-color:#EFEDEC;",
-                      card(
-                        style = "border-radius: 10px",
-                        card_header(h2("Peptide Count")),
-                        card_body(verbatimTextOutput("PeptideCount")),
-                        align = "center"
-                      ),
-                      card(
-                        style = "border-radius: 10px",
-                        card_header(h2("Protein Count")),
-                        card_body(verbatimTextOutput("ProteinCount")),
-                        align = "center"
-                      )),
-                    card(
-                      style = "border-radius: 10px;",
-                      card_header(h3("Mutation Consequence Distribution")),
-                      card_body(plotlyOutput(outputId = "pie_chart_consequence",height = 250, width = "auto")),
-                      align = "center"
-                    ),
-                    card(
-                      style = "border-radius: 10px;",
-                      card_header(h2("Top 10 Proteins by Mutation"),
-                                  align = "center"),
-                      card_body(plotlyOutput("variant_distribution",height = 250,width = "auto"))
-                    ),
-                    card(
-                      style = "border-radius: 10px;",
-                      card_header(h2("Variant Peptide Length Distribution"),
-                                  align = "center"),
-                      card_body(plotlyOutput("var_pep_len_distribution", height = 250, width = "auto"))
+                        style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
+                        layout_columns(
+                          col_widths = c(6,6,6,6),
+                          layout_columns(
+                            col_widths = c(12,6,6),
+                            row_heights = c("auto", "150px"),
+                            p("QuaVaProt is a knowledgebase centered on predicting and characterizing variant peptides, 
+                              while providing adjacent annotations and references, allowing for a streamlined approach to selecting 
+                              peptide targets for quantitative proteomic assay developement.", style = "font-size: x-large;"),
+                            card(
+                              style = "border-radius: 10px",
+                              card_header(h2("Protein Count")),
+                              card_body(htmlOutput("ProteinCount", style = "font-size: xx-large")),
+                              align = "center"
+                            ),
+                            card(
+                              style = "border-radius: 10px",
+                              card_header(h2("Peptide Count")),
+                              card_body(htmlOutput("PeptideCount", style = "font-size: xx-large")),
+                              align = "center"
+                            )
+                            ),
+                          card(
+                            plotlyOutput(outputId = "pie_chart_consequence")
+                          ),
+                          
+                          card(
+                            plotlyOutput("variant_distribution")
+                          ),
+                          card(
+                            plotlyOutput("var_pep_len_distribution")
+                          )
+                          
+                        )
+                      )
                     )
-                  )
+                  ),
+                  p(paste("Last updated: ", version))
                 ),
                 width = 12, height = "auto")
             }else{
@@ -363,13 +393,30 @@ server <- function(input, output, session) {
                     fluidRow(
                       style = "padding-top: 40px;",
                       layout_columns(
-                        col_widths = c(2,2,-2,2,2,2, 12),row_heights = c(1,20),
-                        downloadButton("download_resultstable", "Download All"),
-                        downloadButton("download_resultstable_checked", "Download Selected"),
-                        actionButton(inputId = "filter_peptides_button", label = "Filter Peptides", width = "200px"),
-                        actionButton(inputId = "view_change", label = "Comprehensive View", width = "200px", class = "view_change"),
-                        actionButton(inputId = "result_columns", label = NULL, icon = icon(name = "filter", lib = "font-awesome"), width = '40px'),
-                        DT::dataTableOutput("resultstable", width = "99%")
+                        col_widths = c(-1,10,-1),
+                        card(
+                          card_header(
+                            style = "border: 1px outset #458b74; background-color: #0088cc;",
+                            h1(htmlOutput("results_header"), style = "color: white;")
+                          ),
+                          card_body(
+                            style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
+                            layout_columns(
+                              col_widths = c(4,-2,6, 12),row_heights = c(1,20),
+                              div(
+                                downloadButton("download_resultstable", "Download All", style = "width: 220px; margin-right: 10px;"),
+                                downloadButton("download_resultstable_checked", "Download Selected", style = "width: 220px; margin-right: 10px;")
+                              ),
+                              div(
+                                style = "align-self: end;",
+                                actionButton(inputId = "filter_peptides_button", label = "Filter Peptides", width = "200px", style = "margin-right: 10px;"),
+                                actionButton(inputId = "view_change", label = "Comprehensive View", width = "200px", class = "view_change", style = "margin-right: 10px;"),
+                                actionButton(inputId = "result_columns", label = NULL, icon = icon(name = "filter", lib = "font-awesome"), width = '40px', style = "margin-right: 10px;") 
+                              ),
+                              DT::dataTableOutput("resultstable", width = "99%")
+                            )
+                          )
+                        )
                       )
                     ), 
                     width = 12)
@@ -481,34 +528,93 @@ server <- function(input, output, session) {
                 }else if(query$page=="Peptide"){
                   mainPanel(
                     tags$style('.peptidetext {word-wrap:break-word;}
-                     .peptide_box {background-color:#EFEDEC;padding:15px;'),
+                                .peptide_box {background-color:#EFEDEC;padding:15px;}
+                                .card_style {border: none}
+                                .card_titles {background-color: #0088cc; text-align: center; border: 1px solid gray; border-radius: 3px 3px 0px 0px;}
+                                .card_body {background-color: white; border: 1px solid gray; border-radius: 0px 0px 3px 3px;}
+                               '),
                     fluidRow(
                       style = "padding-top: 40px;",
-                      layout_columns(col_widths = c(3,3,3,3,6,6,2,2),
+                      
+                      layout_columns(col_widths = c(3,3,3,3, 12, 6,6,2,2),
                                      card(
-                                       h3(strong("Peptide ID")),
-                                       h4(textOutput("peptide_id")),
-                                       align="center",
-                                       style="border:none;"
+                                       class = "card_style",
+                                       card_header(
+                                         class = "card_titles",
+                                         h1("Peptide ID", style = "color: white;"),
+                                       ),
+                                       card_body(
+                                         class = "card_body",
+                                         layout_columns(
+                                           col_widths = c(12),
+                                           div(
+                                             h4(textOutput("peptide_id")),
+                                             align="center",
+                                             style="border:none;"
+                                           )
+                                         )
+                                       )
                                      ),
+                                     
                                      card(
-                                       h3(strong("Protein")),
-                                       h4(textOutput("protein_name")),
-                                       align="center",
-                                       style="border:none;"
+                                       class = "card_style",
+                                       card_header(
+                                         class = "card_titles",
+                                         h1("Protein", style = "color: white;"),
+                                       ),
+                                       card_body(
+                                         class = "card_body",
+                                         layout_columns(
+                                           col_widths = c(12),
+                                           div(
+                                             h4(textOutput("protein_name")),
+                                             align="center",
+                                             style="border:none;"
+                                           )
+                                         )
+                                       )
                                      ),
+                                     
                                      card(
-                                       h3(strong("Ensembl Transcript ID")),
-                                       h4(textOutput("ensembl_t")),
-                                       align="center",
-                                       style="border:none;"
+                                       class = "card_style",
+                                       card_header(
+                                         class = "card_titles",
+                                         h1("Ensembl Transcript ID", style = "color: white;"),
+                                       ),
+                                       card_body(
+                                         class = "card_body",
+                                         layout_columns(
+                                           col_widths = c(12),
+                                           div(
+                                             h4(textOutput("ensembl_t")),
+                                             align="center",
+                                             style="border:none;"
+                                           )
+                                         )
+                                       )
                                      ),
+                                     
                                      card(
-                                       h3(strong("Variation")),
-                                       h4(textOutput("variation")),
-                                       align="center",
-                                       style="border:none;"
+                                       class = "card_style",
+                                       card_header(
+                                         class = "card_titles",
+                                         h1("Variation", style = "color: white;"),
+                                       ),
+                                       card_body(
+                                         class = "card_body",
+                                         layout_columns(
+                                           col_widths = c(12),
+                                           div(
+                                             h4(textOutput("variation")),
+                                             align="center",
+                                             style="border:none;"
+                                           )
+                                         )
+                                       )
                                      ),
+                                     
+                                     br(),
+                                     
                                      card(
                                        style = "border-radius: 10px",
                                        card_header(h3("Wild type")),
@@ -529,66 +635,140 @@ server <- function(input, output, session) {
                   mainPanel(
                     width = 12,
                     tags$style('.peptidetext {word-wrap:break-word;}
-                     .peptide_box {background-color:#EFEDEC;padding:15px;'),
+                                .peptide_box {background-color:white;padding:15px;}
+                                .table_links {color:blue; cursor: pointer; text-decoration:none !important;}
+                                .table_links:hover {color: green;}'),
                     fluidRow(
                       style = "padding-top: 40px;",
                       layout_columns(
-                        row_heights = c("auto","570px", "auto", "auto", "auto", "auto", "auto", "620px", "auto", "620px", "auto"), 
-                        col_widths = c(12,6,6,  12,6,6, 6,-2,2,2,6,6, 10,2,12, 10,2,12, 12),
+                        col_widths = c(-1,10,-1),
                         
-                        h1("Protein Variant Information"),
+                        #protein info
                         card(
-                          DT::dataTableOutput("summary_table_1"),
-                          style="border:none;"
-                        ),
-                        card(
-                          DT::dataTableOutput("summary_table_2"),
-                          style="border:none;"
-                        ),
-                        
-                        h1("Mutation Case Information"),
-                        card(
-                          style = "border-radius: 10px; margin-bottom: 50px",
-                          card_header(h2("Disease Association"),
-                                      align = "center"),
-                          card_body(plotlyOutput("disease_type",height = 500,width = "auto"))
-                        ),
-                        card(
-                          style = "border-radius: 10px; margin-bottom: 50px",
-                          card_header(h2("Disease Primary Site"),
-                                      align = "center"),
-                          card_body(plotlyOutput("disease_site", height = 500, width = "auto"))
+                          card_header(
+                            style = "border: 1px outset #458b74; background-color: #0088cc;",
+                            h1("Protein Variant Information", style = "color: white;"),
+                          ),
+                          card_body(
+                            style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
+                            layout_columns(
+                              col_widths = c(6,6),
+                              div(
+                                style = "background-color: white;",
+                                DT::dataTableOutput("summary_table_1")
+                              ),
+                              div(
+                                style = "background-color: white;",
+                                DT::dataTableOutput("summary_table_2")
+                              )
+                            )
+                          )
                         ),
                         
-                        
-                        h1("Peptide Location"),
-                        downloadButton(outputId = "fasta_sequence", label = "Download Sequence Fasta"),
-                        downloadButton(outputId = "fasta_peptide", label = "Download Peptide Fasta"),
+                        #mutation association
                         card(
-                          style = "border-radius: 10px",
-                          card_header(h3("Wild type")),
-                          card_body(htmlOutput("peptide_highlight_nat"),
-                                    class = "peptide_box")
+                          card_header(
+                            style = "border: 1px outset #458b74; background-color: #0088cc;",
+                            h1("Mutation Case Information", style = "color: white;"),
+                          ),
+                          card_body(
+                            style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
+                            layout_columns(
+                              col_widths = c(6,6),
+                              card(
+                                style = "border-radius: 10px; margin-bottom: 50px",
+                                card_header(h2("Disease Association"),
+                                            align = "center"),
+                                card_body(plotlyOutput("disease_type",height = 500,width = "auto"))
+                              ),
+                              card(
+                                style = "border-radius: 10px; margin-bottom: 50px",
+                                card_header(h2("Disease Primary Site"),
+                                            align = "center"),
+                                card_body(plotlyOutput("disease_site", height = 500, width = "auto"))
+                              )
+                            )
+                          )
                         ),
+                        
+                        #peptide location
+                        
                         card(
-                          style = "border-radius: 10px",
-                          card_header(h3("Variant")),
-                          card_body(htmlOutput("peptide_highlight_mut"),
-                                    class = "peptide_box")
+                          card_header(
+                            style = "border: 1px outset #458b74; background-color: #0088cc;",
+                            h1("Peptide Location", style = "color: white;"),
+                          ),
+                          card_body(
+                            height = "auto",
+                            style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
+                            layout_columns(
+                              col_widths = c(6,6, -8,4),
+                              card(
+                                style = "border-radius: 10px",
+                                card_header(h3("Wild type")),
+                                card_body(htmlOutput("peptide_highlight_nat"),
+                                          class = "peptide_box")
+                              ),
+                              card(
+                                style = "border-radius: 10px",
+                                card_header(h3("Variant")),
+                                card_body(htmlOutput("peptide_highlight_mut"),
+                                          class = "peptide_box")
+                              ),
+                              div(
+                                style = "align-self: end;",
+                                downloadButton(outputId = "fasta_sequence", label = "Download Sequence Fasta"),
+                                downloadButton(outputId = "fasta_peptide", label = "Download Peptide Fasta")
+                              )
+
+                            )
+                            
+                          )
                         ),
                         
-                        h1("Gene Onlology Association"),
-                        downloadButton(outputId = "GO_table_download", label = "Download GO Table"),
+                        #gene ontology
                         card(
-                          style="border:none;",
-                          dataTableOutput("GO_table")
+                          card_header(
+                            style = "border: 1px outset #458b74; background-color: #0088cc;",
+                            h1("Gene Onlology Association", style = "color: white;"),
+                          ),
+                          card_body(
+                            tags$style('.dataTables_scroll {margin-top: -6px;}'),
+                            style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
+                            layout_columns(
+                              col_widths = c(12, -10, 2),
+                              div(
+                                style = "background-color: white;",
+                                dataTableOutput("GO_table")
+                              ),
+                              div(
+                                style = "align-self: end;",
+                                downloadButton(outputId = "GO_table_download", label = "Download GO Table")
+                              )
+                            )
+                          )
                         ),
                         
-                        h1("KEGG Pathways"),
-                        downloadButton(outputId = "KEGG_table_download", label = "Download KEGG Table"),
+                        #kegg pathways
                         card(
-                          style="border:none;",
-                          dataTableOutput("kegg_table")
+                          card_header(
+                            style = "border: 1px outset #458b74; background-color: #0088cc;",
+                            h1("KEGG Pathways", style = "color: white;"),
+                          ),
+                          card_body(
+                            style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
+                            layout_columns(
+                              col_widths = c(12, -10, 2),
+                              div(
+                                style = "background-color: white;",
+                                dataTableOutput("kegg_table")
+                              ),
+                              div(
+                                style = "align-self: end;",
+                                downloadButton(outputId = "KEGG_table_download", label = "Download KEGG Table")
+                              )
+                            )
+                          )
                         )
                       )
                     )
@@ -596,34 +776,56 @@ server <- function(input, output, session) {
                 }else if (query$page == "gene"){
                   mainPanel(
                     tags$style('.table_links {color:blue; cursor: pointer; text-decoration:none !important;}
-                      .table_links:hover{color: green;}'),
+                                .table_links:hover{color: green;}'),
                     width = 12,
                     fluidRow(
                       style = "padding-top: 40px;",
                       layout_columns(
-                        col_widths = c(12, 6,6, 12),
-                        row_heights = c("auto", "650px", "850px"),
-                        h1(
-                          textOutput("gene_symbol")
-                        ),
-                        card(
-                          fluidRow(
-                            h2("Summary", style = "margin: 0; padding: 0;"),
-                            DT::dataTableOutput("gene_summary_1", width = "99%"),
+                        col_widths = c(-1,10,-1),
+                        
+                        layout_columns(
+                          col_widths = c(6,6),
+                          card(
+                            card_header(
+                              style = "border: 1px outset #458b74; background-color: #0088cc;",
+                              h1("Summary", style = "color: white;")
+                            ),
+                            card_body(
+                              style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
+                              div(
+                                style = "background-color: white;",
+                                DT::dataTableOutput("gene_summary_1")
+                              )
+                            )
                           ),
-                          style="border:none;"
+                          
+                          card(
+                            card_header(
+                              style = "border: 1px outset #458b74; background-color: #0088cc;",
+                              h1("External Ref", style = "color: white;")
+                            ),
+                            card_body(
+                              style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
+                              div(
+                                style = "background-color: white;",
+                                DT::dataTableOutput("gene_summary_2")
+                              )
+                            )
+                          )
                         ),
+                        
                         card(
-                          fluidRow(
-                            h2("External Ref", style = "margin: 0; padding: 0;"),
-                            DT::dataTableOutput("gene_summary_2", width = "99%"),
+                          card_header(
+                            style = "border: 1px outset #458b74; background-color: #0088cc;",
+                            h1("Variations", style = "color: white;")
                           ),
-                          style = "border:none;"
-                        ),
-                        card(
-                          h2("Variations"),
-                          DT::dataTableOutput("gene_summary_table", width = "99%"),
-                          style="border:none;"
+                          card_body(
+                            style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
+                            div(
+                              style = "background-color: white; border: 1px solid gray; padding: 10px;",
+                              DT::dataTableOutput("gene_summary_table")
+                            )
+                          )
                         )
                       )
                     )
@@ -635,22 +837,173 @@ server <- function(input, output, session) {
                     fluidRow(
                       style = "padding-top: 40px;",
                       layout_columns(
-                        col_widths = c(12, 12, 2, -10),
-                        row_heights = c("auto", "auto"),
-                        
-                        h1("Help"),
-
-                        h4("For a short tutorial on the using QuaVaProt, see the presentation below.", 
-                           style = "margin: 0; padding: 0;"),
-                        
-                        downloadButton("help_ppt", label = "Download Presenation"),
-                        
-                        br(),
-                        
-                        h1("Version"),
-                        
-                        h4("Last Updated: 2025-04-11")
-                        
+                        col_widths = c(-1, 10, -1),
+                        card(
+                          card_header(
+                            style = "border: 1px outset #458b74; background-color: #0088cc;",
+                            h2("Tutorial", style = "color: white;")
+                          ),
+                          card_body(
+                            style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
+                            p("QuaVaProt is a knowledge base designed to streamline proteogenomic assay development by automating variant peptide target", br(), 
+                              "selection. Peptide predictions were generated using mutations (HGVSc/HGVSp) and transcripts (Ensembl) reported by the NCI-GDC", br(), 
+                              "and COSMIC. Peptide target candidates are then evaluated by over 30 evaluation criteria. QuaVaProt enables users to search, and", br(), 
+                              "download generated peptide entries.", 
+                              style = "margin: 0; padding: 0;"),
+                            
+                            br(),
+                            
+                            p("The homepage shows some basic statistics of the mutations and variant peptides found within QuaVaProt."),
+                            
+                            img(src = "help1.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;"),
+                            
+                            br(),
+                            
+                            h2("Searching"),
+                            img(src = "help2.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;"),
+                            
+                            br(),
+                            br(),
+                            
+                            p("Example search results (BRAF)", br(),
+                              "The results page includes hyperlinks to external resources pertinent to the mutation, peptide, or protein searched"),
+                            
+                            img(src = "help3.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;"),
+                            
+                            br(),
+                            
+                            img(src = "help4.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;"),
+                            
+                            br(),
+                            
+                            img(src = "help5.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;"),
+                            
+                            br(),
+                            
+                            img(src = "help6.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;"),
+                            
+                            br(),
+                            
+                            h3("Peptide selection criteria"),
+                            
+                            p("Canonical check:", br(),
+                              "WT peptides sequences check for perfect alignment with canonical protein sequence (UniprotKB)", br(),
+                              br(),
+                              "Variant unique(vs WT):", br(),
+                              "Variant peptide checked if it is not a product of digestion from the WT protein", br(),
+                              br(),
+                              "WT Unique(VS variant):", br(),
+                              "WT peptide checked if it is not a product of digestion from the Variant protein", br(),
+                              br(),
+                              "Isoform check:", br(),
+                              "WT peptide checked if it is a product of digestion of all isoforms of the protein (UniprotKB)", br(),
+                              br(),
+                              "PTM filter:", br(),
+                              "Peptides checked if they do not contain a PTM site within or flanking the peptide region (UniprotKB)", br(),
+                              br(),
+                              "Cleave site filter:", br(),
+                              "Peptides checked if they do not contain cleavage sites (UniprotKB)", br(),
+                              br(),
+                              "Main Chain:", br(),
+                              "Peptides checked if they are within the main functional chain of the protein (UniprotKB)", br(),
+                              br(),
+                              "SNP filter:", br(),
+                              "Peptides checked if they do not contain any significant SNP (frequency >1%) (dbSNP)", br(),
+                              br(),
+                              "Peptide observed previously:", br(),
+                              "WT peptides checked if they have been reported as observed previously (PeptideAtlas & gpmDB)", br(),
+                              br(),
+                              "Length Filter", br(),
+                              "Peptides checked if their length are between 7 and 25 residues", br(),
+                              br(),
+                              "N-Gln Filter", br(),
+                              "Peptides checked if they do not contain N-terminal glutamines", br(),
+                              br(),
+                              "C, M, W, DG, DP, NG, QG, PPP, PPG, Serine strings Filter", br(),
+                              "Peptides Checked if they do not contain various residues, and strings of residues", br(),
+                              br(),
+                              "Unique(vs Proteome)", br(),
+                              "Peptides checked if they are a unique digest product of a protein when compared to the human proteome (UniprotKB)", br(),
+                              br(),
+                              "Digestion efficiency filter", br(),
+                              "Peptides checked if they are predicted to have a digestion efficiency of >10% from the parent protein (EXPASY’s PeptideCutter)"
+                            ),
+                            
+                            br(),
+                            
+                            img(src = "help7.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;"),
+                            br(),
+                            
+                            img(src = "help8.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;"),
+                            br(),
+                            
+                            img(src = "help9.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;"),
+                            br(),
+                            
+                            img(src = "help10.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;"),
+                            br(),
+                            
+                            img(src = "help11.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;"),
+                            br(),
+                            
+                            img(src = "help12.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;"),
+                            br(),
+                            
+                            img(src = "help13.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;"),
+                            br(),
+                            
+                            img(src = "help14.png", width = "1200px", style = "border: 1px solid black; border-radius: 5px;")
+                          )
+                        )
+                      )
+                    )
+                  )
+                }else if(query$page == "about"){
+                  mainPanel(
+                    width = 12,
+                    br(),
+                    fluidRow(
+                      style = "padding-top: 40px;",
+                      layout_columns(
+                        col_widths = c(-1, 10, -1),
+                        card(
+                          card_header(
+                            style = "border: 1px outset #458b74; background-color: #0088cc;",
+                            h1("About", style = "color: white;")
+                          ),
+                          card_body(
+                            style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
+                            h2("Implementation"),
+                            p("QuaVaProt was written in", 
+                              tags$a(href = "https://www.r-project.org/", "R", target = "_blank"), 
+                              ". The web interface was implemented using the",
+                              
+                              tags$a(href = "https://doi.org/10.32614/CRAN.package.shiny", "R Shiny", target = "_blank"),
+                              
+                              "framework. QuaVaProt utilizes mutation data retreived", br(),
+                              "from the",
+                              tags$a(href = "https://pmc.ncbi.nlm.nih.gov/articles/PMC6309165/", "NCI-GDC", target = "_blank"),
+                              "and",
+                              tags$a(href = "https://pmc.ncbi.nlm.nih.gov/articles/PMC10767972/", "COSMIC.", target = "_blank"),
+                              ". QuavaProt integrates protein and external data retreived from",
+                              tags$a(href = "https://pmc.ncbi.nlm.nih.gov/articles/PMC9825514/", "UniprotKB", target = "_blank"),",",
+                              tags$a(href = "https://europepmc.org/article/MED/39656687", "Ensembl", target = "_blank"),", ",
+                              tags$a(href = "https://pmc.ncbi.nlm.nih.gov/articles/PMC1347403/", "PeptideAtlas", target = "_blank"),",",
+                              tags$a(href = "https://pubs.acs.org/doi/10.1021/pr049882h", "gpmDB", target = "_blank"),",",
+                              br(),
+                              tags$a(href = "https://genome.cshlp.org/content/9/8/677.long", "dbSNP", target = "_blank"),", and",
+                              tags$a(href = "https://pubmed.ncbi.nlm.nih.gov/10027275/", "Expasys' PeptideCutter", target = "_blank"), 
+                              ".",
+                              tags$a(href = "https://plotly-r.com/", "Plotly", target = "_blank"),
+                              "is used for data visualization."
+                            ),
+                            br(),
+                            br(),
+                            
+                            h2("Version"),
+                            p(paste("Last updated: ", version))
+                          )
+                        )
                       )
                     )
                   )
@@ -680,14 +1033,14 @@ server <- function(input, output, session) {
   })
   
   #Home page tab  
-  output$PeptideCount <- renderText({
+  output$PeptideCount <- renderUI({
     if(query$data_set=="GDC"){
       some_stats$pep_count[which(some_stats$dataset == "GDC")]
     }else if (query$data_set=="COSMIC"){
       some_stats$pep_count[which(some_stats$dataset == "COSMIC")]
     }
   })
-  output$ProteinCount <- renderText({
+  output$ProteinCount <- renderUI({
     if(query$data_set=="GDC"){
       some_stats$prot_count[which(some_stats$dataset == "GDC")]
     }else if(query$data_set=="COSMIC"){
@@ -708,7 +1061,11 @@ server <- function(input, output, session) {
   output$variant_distribution <- renderPlotly({
     fig <- plot_ly(variant_distribution(), type = "bar", x = ~Gene, y = ~Prevalence, 
                    text = ~Prevalence)
-    fig <- layout(fig, font = list(size=14))
+    fig <- layout(fig, 
+                  margin = list(l=10,b=10,r=10,t=55),
+                  font = list(size=14),
+                  title = list(text = "Top 10 Proteins by Mutation \n", xanchor = 'center', yanchor =  'top', font = list(size = 30))
+                  )
     fig <- config(fig, displayModeBar = F)
     fig
   })
@@ -726,10 +1083,12 @@ server <- function(input, output, session) {
   output$var_pep_len_distribution <- renderPlotly({
     fig <- plot_ly(var_pep_len_distribution(), type = "bar", x = ~length, y = ~Freq, 
                    text = ~Freq)
-    fig <- layout(fig, 
+    fig <- layout(fig,
+                  margin = list(l=10,b=10,r=10,t=55),
                   xaxis = list(title = "Peptide Length"),
                   yaxis = list(title = "Frequency"),
-                  font = list(size=14))
+                  font = list(size=14),
+                  title = list(text = "Variant Peptide Length Distribution \n", xanchor = 'center', yanchor =  'top', font = list(size = 30)))
     fig <- config(fig, displayModeBar = F)
     fig
   })
@@ -750,10 +1109,14 @@ server <- function(input, output, session) {
                    insidetextfont = list(color = '#FFFFFF'),
                    marker = list(colors = colors,
                                  line = list(color = '#FFFFFF', width = 1)),
-                   showlegend = T)
+                   showlegend = T
+                   
+                   )
     fig <- add_pie(fig, hole = 0.5)
-    fig <- layout(fig, margin = list(l=0,b=0,r=0,t=0),
-                  font = list(size=14))
+    fig <- layout(fig,
+                  margin = list(l=10,b=10,r=10,t=55),
+                  legend = list(title=list(text='<b> Mutation Consequence </b>')),
+                  title = list(text = "Mutation Consequence Distribution \n", xanchor = 'center', yanchor =  'top', font = list(size = 30)))
     fig <- config(fig, displayModeBar = F)
     fig
     })
@@ -774,17 +1137,24 @@ server <- function(input, output, session) {
                   sep="")
       
       js$browseURL(url)
+      
     }
+  })
+  
+  output$results_header <- renderUI({
+    header = paste("Results: ", query$query, " (", nrow(dfresults_table()), "/", length(results_index$values), " entries)", sep = "")
+    return(header)
   })
   
   observeEvent(query$search, {
     results_index$values <- 
       if(query$data_set=="GDC"){
-        tmp = query_function(DB = quavaprotdb, "GDC_short", 
+        tmp = query_function(DB = quavaprotdb, "GDC_short_fts", 
                              col_searched = c(2,3,5:10,14,15,17,27:29), 
                              col_returned = c(1),
                              query$search, query$query)
-        tmp$row_names
+        index = tmp$row_names
+        index
       }else if(query$data_set=="COSMIC"){
         # tmp = query_function(DB = quavaprotdb, "COSMIC_short", 
         #                      col_searched = c(2,3,5:9,14,15,16,18,28:30), 
@@ -803,7 +1173,7 @@ server <- function(input, output, session) {
     cols = column_applied$Values
     if (length(index) != 0){
       if(query$data_set=="GDC"){
-        tmp = query_IDs(quavaprotdb, "GDC_links", search = index, search_col = "row_names")
+        tmp = query_IDs(DB = quavaprotdb, Table_name = "GDC_links", search = index, search_col = "row_names")
         tmp[, cols]
       }else if(query$data_set=="COSMIC"){
         # tmp = query_IDs(quavaprotdb, "COSMIC_links", search = index, "row_names")
@@ -1341,7 +1711,7 @@ server <- function(input, output, session) {
   entry_index = reactive({
     id = query$ID
     if(grepl("QPGD", id)){
-      id = search_all_DB_table_cols(quavaprotdb, "GDC_short", id, 2, 1)
+      id = search_all_DB_table_cols(DB = quavaprotdb, Table_name =  "GDC_short", search_term = id, col_searched = "ID", col_returned = "row_names")
       id = id$row_names
       index = query_IDs(quavaprotdb, "GDC_short", search = id, "row_names")
     }else if(grepl("QPCO", id)){
@@ -1515,7 +1885,8 @@ server <- function(input, output, session) {
         data.frame(
           summary_table_1()),
         escape = FALSE,
-        selection = "none", fillContainer = T,
+        selection = "none", 
+        fillContainer = T,
         rownames = T,
         colnames = "",
         class = "display cell-border compact",
@@ -1528,14 +1899,14 @@ server <- function(input, output, session) {
           ordering = F,
           dom =  'lfrtp',
           scrollX = FALSE,
-          scrollY = "600px",
+          scrollY = "490px",
           columnDefs = list(
             list(className = 'dt-center', targets = "_all"),
             list(width = '500px', targets = c(1))
           )
         )
       )
-    }, 
+    },
     server = TRUE)
   }
   
@@ -1575,7 +1946,7 @@ server <- function(input, output, session) {
           ordering = F,
           dom =  'lfrtp',
           scrollX = FALSE,
-          scrollY = "600px",
+          scrollY = "514px",
           columnDefs = list(
             list(className = 'dt-center', targets = "_all"),
             list(width = '500px', targets = c(1))
@@ -1781,7 +2152,7 @@ server <- function(input, output, session) {
           ordering = F,
           dom =  'rtp',
           scrollX = FALSE,
-          scrollY = "430px",
+          scrollY = "440px",
           columnDefs = list(
             list(className = 'dt-center', targets = "_all"),
             list(width = '200px', targets = c(1)),
@@ -1840,7 +2211,7 @@ server <- function(input, output, session) {
         hsa = strsplit(entry_index()$KEGG, ":|;")[[1]][2]
       }
       for (n in 1:nrow(data)){
-        data$ID[n] = paste('<a class="table_links" href="https://www.genome.jp/pathway/', data$ID[n], "+", hsa, '" target="_blank">', data$ID[n],'</a>', sep = "")
+        data$ID[n] = paste('<a class="table_links" href="https://www.kegg.jp/kegg-bin/show_pathway?', data$ID[n], "+", hsa, '" target="_blank">', data$ID[n],'</a>', sep = "")
       }
       data
     }else{
@@ -1966,7 +2337,7 @@ server <- function(input, output, session) {
   
   gene_table <- reactive({
     if(query$data_set == "GDC"){
-      ids = search_all_DB_table_cols(quavaprotdb, "GDC_short", query$gene, c(3), col_returned = c(1))
+      ids = search_all_DB_table_cols(quavaprotdb, "GDC_short_fts", query$gene, "Symbol", col_returned = "row_names")
       query_IDs(quavaprotdb, "GDC_links", search = ids$row_names, search_col = "row_names")
     }else if(query$data_set == "COSMIC"){
       # ids = search_all_DB_table_cols(quavaprotdb, "COSMIC_short", query$gene, c(3), col_returned = c(1))
@@ -2080,7 +2451,7 @@ server <- function(input, output, session) {
           ordering = F,
           dom =  'lfrtp',
           scrollX = FALSE,
-          scrollY = "500px",
+          scrollY = "187px",
           headerCallback = JS(hide_header),
           columnDefs = list(
             list(width = '150px', targets = c(0)),
@@ -2111,7 +2482,7 @@ server <- function(input, output, session) {
           ordering = F,
           dom =  'lfrtp',
           scrollX = FALSE,
-          scrollY = "500px",
+          scrollY = "463px",
           headerCallback = JS(hide_header),
           columnDefs = list(
             list(targets = c(1),
