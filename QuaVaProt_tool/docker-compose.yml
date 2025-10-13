@@ -11,6 +11,7 @@ services:
     volumes:
       - ./shiny-tool:/srv/shiny-server/
       - ./data:/srv/shiny-server/data/
+      - ./www:/srv/shiny-server/www/
 
   nginx:
     image: nginx:latest
