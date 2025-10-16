@@ -321,11 +321,15 @@ server <- function(input, output, session) {
               NULL
             }
           },
+          header = {
+            useBusyIndicators()
+          },
           footer = {
             if((is.null(query$page)) & (is.null(query$data_set))){
 
             }else if((query$page=="home") & ((query$data_set=="GDC")||(query$data_set=="COSMIC"))){
               mainPanel(
+                busyIndicatorOptions(spinner_type = 'dots3', spinner_color = '#0088cc'),
                 fluidRow(
                   layout_columns(
                     col_widths = c(11,-1),
@@ -400,6 +404,7 @@ server <- function(input, output, session) {
                             h1(htmlOutput("results_header"), style = "color: white;")
                           ),
                           card_body(
+                            busyIndicatorOptions(spinner_type = 'dots3', spinner_color = '#0088cc', spinner_size = '100px'),
                             style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
                             layout_columns(
                               col_widths = c(4,-2,6, 12),row_heights = c(1,20),
@@ -633,6 +638,7 @@ server <- function(input, output, session) {
                     ),width = 12)
                 }else if(query$page == "entry"){
                   mainPanel(
+                    busyIndicatorOptions(spinner_type = 'dots3', spinner_color = '#0088cc'),
                     width = 12,
                     tags$style('.peptidetext {word-wrap:break-word;}
                                 .peptide_box {background-color:white;padding:15px;}
