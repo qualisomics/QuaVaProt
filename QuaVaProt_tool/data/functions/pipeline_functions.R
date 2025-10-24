@@ -419,8 +419,9 @@ Uniprot_to_ensembl_gene_id = function(Table, Uniprot_ids){
     return(Table)
   }
   dfid = data.frame()
-  for (n in seq(1, length(ids), 500)){
-    g = n+499
+  for (n in seq(1, length(ids), 100)){
+    class(n) <- "integer"
+    g = n+99
     if (g > length(ids)){
       g = length(ids)
     }
@@ -430,8 +431,11 @@ Uniprot_to_ensembl_gene_id = function(Table, Uniprot_ids){
                  sep = "")
     res <- GET(url)
     data = fromJSON(rawToChar(res$content))
+    
     query = data[["results"]][["primaryAccession"]]
+    
     dfid1 = data.frame(Uniprot_id=query, Gene_id=NA)
+    
     for(n in 1:nrow(dfid1)){
       id = data[["results"]][["uniProtKBCrossReferences"]][[n]][["properties"]][[1]][["value"]]
       index = grep("ENSG", id)
@@ -1464,8 +1468,8 @@ Human_proteome_retriever <- function(){
   url <- "https://rest.uniprot.org/uniprotkb/search?query=(model_organism:9606%20AND%20reviewed:true)&format=json&includeIsoform=true&size=500&fields=accession,sequence"
   res <- GET(url)
   total_results <- as.integer(res[["headers"]][["x-total-results"]])
-  for (n in seq(1, total_results, 500)){
-    g = n+499
+  for (n in seq(1, total_results, 100)){
+    g = n+99
     if (g > total_results){
       g = total_results
     }
@@ -1542,8 +1546,8 @@ PTM_Filter <- function(Table, Uniprot_id, GDC_native_seq, GDC_mut_seq,
   class(dfPTM_short1$Length) = "integer"
   class(dfPTM_short1$other_start) = "list"
   class(dfPTM_short1$other_end) = "list"
-  for (n in seq(1, length(ids), 500)){
-    g = n+499
+  for (n in seq(1, length(ids), 100)){
+    g = n+99
     if (g > length(ids)){
       g = length(ids)
     }
@@ -1846,14 +1850,6 @@ SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_
         if (length(dfSNP2$SNP_loc[[n]]) == length(dfSNP2$SNP_id[[n]])){
           index = c()
           for (g in 1:length(dfSNP2$SNP_loc[[n]])){
-            
-            # TEST <<- dfSNP2
-            # TEST2 <<- dfSNP_main
-            print(dfSNP2$Peptide_end[n])
-            print(dfSNP2$SNP_loc[[n]][g])
-            print(dfSNP2$SNP_loc[[n]][g])
-            dfSNP2$Peptide_start[n]
-            
             if ((dfSNP2$Peptide_end[n] >= dfSNP2$SNP_loc[[n]][g]) & (dfSNP2$SNP_loc[[n]][g] >= dfSNP2$Peptide_start[n])){
               index = c(index, g)
             }
