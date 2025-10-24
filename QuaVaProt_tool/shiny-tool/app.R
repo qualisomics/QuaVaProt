@@ -112,9 +112,9 @@ server <- function(input, output, session) {
                       col_widths = c(-10,2),
                       uiOutput("render_download_button")
                     ),
-                    DT::dataTableOutput("resultstable", width = "99%"),
+                    div(DT::dataTableOutput("resultstable", width = "99%")),
                     br(),
-                    uiOutput("render_checkbox")
+                    div(uiOutput("render_checkbox"))
                   )
                 )
               )
@@ -441,7 +441,7 @@ server <- function(input, output, session) {
           ordering = TRUE,
           dom =  'lrtip',
           scrollX = TRUE,
-          # scrollY = "auto",
+          scrollY = "auto",
           columnDefs = list(
             list(className = 'dt-center', targets = "_all")
           )
