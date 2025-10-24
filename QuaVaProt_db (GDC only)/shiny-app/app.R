@@ -409,16 +409,19 @@ server <- function(input, output, session) {
                             layout_columns(
                               col_widths = c(4,-2,6, 12),row_heights = c(1,20),
                               div(
+                                style = "white-space: nowrap;",
                                 downloadButton("download_resultstable", "Download All", style = "width: 220px; margin-right: 10px;"),
                                 downloadButton("download_resultstable_checked", "Download Selected", style = "width: 220px; margin-right: 10px;")
                               ),
                               div(
-                                style = "align-self: end;",
+                                style = "align-self: end; white-space: nowrap;",
                                 actionButton(inputId = "filter_peptides_button", label = "Filter Peptides", width = "200px", style = "margin-right: 10px;"),
                                 actionButton(inputId = "view_change", label = "Comprehensive View", width = "200px", class = "view_change", style = "margin-right: 10px;"),
                                 actionButton(inputId = "result_columns", label = NULL, icon = icon(name = "filter", lib = "font-awesome"), width = '40px', style = "margin-right: 10px;") 
                               ),
-                              DT::dataTableOutput("resultstable", width = "99%")
+                              div(
+                                style = "white-space: nowrap;",
+                                DT::dataTableOutput("resultstable", width = "99%"))
                             )
                           )
                         )
@@ -1618,7 +1621,7 @@ server <- function(input, output, session) {
         ordering = TRUE,
         dom =  'lrtip',
         scrollX = TRUE,
-        scrollY = "500px",
+        scrollY = "auto",
         columnDefs =
           if(query$data_set=="GDC"){
             list(
