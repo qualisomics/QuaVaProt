@@ -36,7 +36,7 @@ server <- function(input, output, session) {
   
   output$UI_output <- renderUI(
     page_navbar(
-      title = "QuaVaProt",
+      title = "QuaVaPeptidePicker",
       id = "Quava_home",
       position = "fixed-top",
       theme = bs_theme(
@@ -94,11 +94,11 @@ server <- function(input, output, session) {
                 card(
                   card_header(
                     style = "border: 1px outset #458b74; background-color: #458b74;",
-                    h1("QuaVaProt Picker", style = "color: white;"),
+                    h1("QuaVaPeptidePicker", style = "color: white;"),
                   ),
                   card_body(
                     style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
-                    p("QuaVaProt Picker is an application designed to be used for bottom-up proteomic assay development of variant proteins."),
+                    p("QuaVaPeptidePicker is an application designed to be used for bottom-up proteomic assay development of variant proteins."),
                     p("Our pipeline uses protein accession numbers and mutations to automatically generate variant peptides and its WT couterpart."),
                     p("It then evaluates these peptides by 37 different selection criteria pertaining to assay development, providing user cusomizable filtering of the results."),
                     br(),
@@ -139,7 +139,7 @@ server <- function(input, output, session) {
                       p("For mutations causing extensions and frameshifts, the HGVSc and Ensembl transcript accession number is required."),
                       p("The Consequence label is optional"),
                       br(),
-                      p("QuaVaProt Picker accepts the following HGVS notations:"),
+                      p("QuaVaPeptidePicker accepts the following HGVS notations:"),
                       layout_columns(
                         col_widths = c(6,6),
                         card_body(
@@ -247,7 +247,7 @@ server <- function(input, output, session) {
                   card_body(
                     style = "border: 1px outset #f2f2f2; background-color: #f2f2f2;",
                     h2("Build"),
-                    p("QuaVaProt Picker was built under R 4.5.0 and the R shiny framework"),
+                    p("QuaVaPeptidePicker was built under R 4.5.0 and the R shiny framework"),
                     p("This software incorporates the following libraries:"),
                     p("UniProt.ws, dplyr, httr, jsonlite, bioseq, and rentrez, shiny, shinythemes, shinywidgets, DT and bslib."),
                     p("The underlying pipeline powering this tool uses data retrived from the following resources to function:"),
@@ -656,3 +656,4 @@ ui <- uiOutput("UI_output")
 
 # Run the app ----
 shinyApp(ui = ui, server = server)
+
