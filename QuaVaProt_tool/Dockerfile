@@ -9,8 +9,18 @@ RUN R -e "require(devtools); install_version('bslib', version = '0.5.1', repos =
 # Copy the Shiny app to the image
 COPY shiny-tool /srv/shiny-server/
 
+# Make sure the Shiny user owns the app directory
+RUN chown -R shiny:shiny /srv/shiny-server/
+
+# Create the /data directory 
+RUN mkdir -p /data && chown -R shiny:shiny /data
+
+# Switch to the Shiny user 
+USER shiny
+
 # Expose port 3838
 EXPOSE 3838
 
 # Start the Shiny server
+
 CMD ["/usr/bin/shiny-server"]
