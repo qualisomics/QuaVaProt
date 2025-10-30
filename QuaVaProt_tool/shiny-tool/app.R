@@ -6,13 +6,11 @@ library(dplyr)
 library(bslib)
 library(httr, include.only = c("GET", "POST", "accept", "content_type"))
 library(jsonlite)
-
-#files
-setwd(dir = "data/")
-source(file = "functions/pipeline_functions.R", local = TRUE)
+library(callr)
 
 # Define server logic ----
 server <- function(input, output, session) {
+  
   #URL
   shiny_port = reactive(
     session$clientData$url_port
@@ -274,6 +272,8 @@ server <- function(input, output, session) {
   })
   
   df_peptide_tool_output <- reactiveValues(values = NULL)
+  bg_results <- reactiveValues(values = NULL)
+  bg_process <- reactiveValues(values = FALSE)
   
   observeEvent(input$close_modal, {
     removeModal()
@@ -281,6 +281,8 @@ server <- function(input, output, session) {
   
   observeEvent(input$submit.button, {
     removeModal()
+    tmp_upload <- isolate(dfupload())
+    entries_processed = nrow(tmp_upload)
     showModal(session = session,
               modalDialog(
                 easyClose = F,
@@ -288,12 +290,12 @@ server <- function(input, output, session) {
                 title = 
                   layout_columns(
                     height = "70px",
-                    col_widths = c(4, -6, 2),
+                    col_widths = c(5, -5, 2),
                     row_heights = c("auto"),
                     style = "margin: 0px; padding: 0px; width: 770px;",
                     card(
                       style = "border: none; margin: 0px; padding: 0px;",
-                      h4("Processing")
+                      h4(paste("Processing", entries_processed, "entries"))
                     ),
                     card(
                       style = "border: none; margin: 0px; padding: 0px;",
@@ -317,21 +319,78 @@ server <- function(input, output, session) {
                     }
 
                   ')),
-                  progressBar(
-                    id = "pb2",
-                    value = 0,
-                    status = "custom",
-                    total = 20,
-                    title = "",
-                    display_pct = TRUE
-                  ),
+                  div(
+                    progressBar(
+                      id = "pb2",
+                      value = 0,
+                      status = "custom",
+                      total = 20,
+                      title = "",
+                      display_pct = TRUE
+                    )),
                   height = "100px"
                 )
               )
     )
-    df_peptide_tool_output$values <- mutation_processor(Table = isolate(dfupload()),progress_bar_show = TRUE, session = session)
-    df_peptide_tool_output_filtered$values <- df_peptide_tool_output$values
-    removeModal()
+    bg_results$values <- r_bg(func =
+                                function(Table, progress_bar_show, session){
+                                  source(file = "data/functions/pipeline_functions.R", local = TRUE)
+                                  mutation_processor(Table, progress_bar_show, session)
+                                },
+                              supervise = TRUE,
+                              args = list(
+                                Table = tmp_upload,
+                                progress_bar_show = FALSE,
+                                session = session
+                              ),
+                              stdout = "|"
+                              )
+    bg_process$values <- TRUE
+  })
+  
+  observe({
+    if(bg_process$values == TRUE){
+      while(bg_results$values$is_alive()){
+        invalidateLater(10000, session)
+        progress = bg_results$values$read_output_lines()
+        if(length(progress) != 0){
+          progress_check = which(grepl("Progress", progress, fixed = T))
+          if(length(progress_check) != 0){
+            progress_step = progress[progress_check[length(progress_check)]]
+            progress_step = as.numeric(substr(progress_step, 15, nchar(progress_step)-1))
+            
+            updateProgressBar(
+              session = session,
+              status = "custom",
+              id = "pb2",
+              value = progress_step, total = 20,
+              title = paste("Working...")
+            )
+          }else if(grepl("Initializingjob", progress)){
+            updateProgressBar(
+              session = session,
+              status = "custom",
+              id = "pb2",
+              value = 0, total = 20,
+              title = paste("Initializing job")
+            )
+          }else if(grepl("Checkingconnection", progress)){
+            updateProgressBar(
+              session = session,
+              status = "custom",
+              id = "pb2",
+              value = 0, total = 20,
+              title = paste("Checking connection")
+            )
+          }
+        }
+        Sys.sleep(1)
+      }
+      df_peptide_tool_output$values <- bg_results$values$get_result()
+      df_peptide_tool_output_filtered$values <- df_peptide_tool_output$values
+      removeModal()
+      bg_process$values <- FALSE
+    }
   })
   
   output$peptide_tool_download <- downloadHandler(
