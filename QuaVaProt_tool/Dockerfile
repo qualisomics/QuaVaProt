@@ -2,7 +2,7 @@
 FROM rocker/shiny:latest
 
 # Install required R packages
-RUN R -e "install.packages(c('shiny', 'shinythemes', 'shinyWidgets', 'dplyr', 'DT', 'httr', 'jsonlite', 'BiocManager', 'bioseq', 'rentrez', 'devtools', 'callr'))"
+RUN R -e "install.packages(c('shiny', 'shinythemes', 'shinyWidgets', 'dplyr', 'DT', 'httr', 'jsonlite', 'BiocManager', 'bioseq', 'rentrez', 'devtools', 'callr', 'shinycssloaders'))"
 RUN R -e "BiocManager::install('UniProt.ws')"
 RUN R -e "require(devtools); install_version('bslib', version = '0.5.1', repos = 'http://cran.us.r-project.org')"
 
@@ -13,5 +13,6 @@ COPY shiny-tool /srv/shiny-server/
 EXPOSE 3838
 
 # Start the Shiny server
+
 
 CMD ["/usr/bin/shiny-server"]
