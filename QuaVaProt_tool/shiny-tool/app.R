@@ -321,16 +321,16 @@ server <- function(input, output, session) {
 
                   ')),
                   layout_columns(
-                    col_widths = c(10,2),
-                    div(
-                      progressBar(
-                        id = "pb2",
-                        value = 0,
-                        status = "custom",
-                        total = 20,
-                        title = "",
-                        display_pct = TRUE
-                      )),
+                    col_widths = c(2,-10),
+                    # div(
+                    #   progressBar(
+                    #     id = "pb2",
+                    #     value = 0,
+                    #     status = "custom",
+                    #     total = 20,
+                    #     title = "",
+                    #     display_pct = TRUE
+                    #   )),
                     div(
                       withSpinner(ui_element = uiOutput("spinner_output"), type = 7,color = "#458b74", proxy.height = "70px", size = 1)
                     )
@@ -356,7 +356,6 @@ server <- function(input, output, session) {
   })
   
   output$spinner_output <- renderUI({
-
     Sys.sleep(5)
     HTML("") 
   })
@@ -364,39 +363,39 @@ server <- function(input, output, session) {
   observe({
     if(bg_process$values == TRUE){
       while(bg_results$values$is_alive()){
-        progress = bg_results$values$read_output_lines()
-        if(length(progress) != 0){
-          progress_check = which(grepl("Progress", progress, fixed = T))
-          if(length(progress_check) != 0){
-            progress_step = progress[progress_check[length(progress_check)]]
-            progress_step = as.numeric(substr(progress_step, 15, nchar(progress_step)-1))
-            
-            updateProgressBar(
-              session = session,
-              status = "custom",
-              id = "pb2",
-              value = progress_step, total = 20,
-              title = paste("Working...")
-            )
-          }else if(grepl("Initializingjob", progress)){
-            updateProgressBar(
-              session = session,
-              status = "custom",
-              id = "pb2",
-              value = 0, total = 20,
-              title = paste("Initializing job")
-            )
-          }else if(grepl("Checkingconnection", progress)){
-            updateProgressBar(
-              session = session,
-              status = "custom",
-              id = "pb2",
-              value = 0, total = 20,
-              title = paste("Checking connection")
-            )
-          }
-        }
-        Sys.sleep(1)
+        # progress = bg_results$values$read_output_lines()
+        # if(length(progress) != 0){
+        #   progress_check = which(grepl("Progress", progress, fixed = T))
+        #   if(length(progress_check) != 0){
+        #     progress_step = progress[progress_check[length(progress_check)]]
+        #     progress_step = as.numeric(substr(progress_step, 15, nchar(progress_step)-1))
+        #     
+        #     updateProgressBar(
+        #       session = session,
+        #       status = "custom",
+        #       id = "pb2",
+        #       value = progress_step, total = 20,
+        #       title = paste("Working...")
+        #     )
+        #   }else if(grepl("Initializingjob", progress)){
+        #     updateProgressBar(
+        #       session = session,
+        #       status = "custom",
+        #       id = "pb2",
+        #       value = 0, total = 20,
+        #       title = paste("Initializing job")
+        #     )
+        #   }else if(grepl("Checkingconnection", progress)){
+        #     updateProgressBar(
+        #       session = session,
+        #       status = "custom",
+        #       id = "pb2",
+        #       value = 0, total = 20,
+        #       title = paste("Checking connection")
+        #     )
+        #   }
+        # }
+        Sys.sleep(2)
       }
       df_peptide_tool_output$values <- bg_results$values$get_result()
       df_peptide_tool_output_filtered$values <- df_peptide_tool_output$values
