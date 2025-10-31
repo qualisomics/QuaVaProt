@@ -7,6 +7,7 @@ library(bslib)
 library(httr, include.only = c("GET", "POST", "accept", "content_type"))
 library(jsonlite)
 library(callr)
+library(shinycssloaders)
 
 # Define server logic ----
 server <- function(input, output, session) {
@@ -319,15 +320,21 @@ server <- function(input, output, session) {
                     }
 
                   ')),
-                  div(
-                    progressBar(
-                      id = "pb2",
-                      value = 0,
-                      status = "custom",
-                      total = 20,
-                      title = "",
-                      display_pct = TRUE
-                    )),
+                  layout_columns(
+                    col_widths = c(10,2),
+                    div(
+                      progressBar(
+                        id = "pb2",
+                        value = 0,
+                        status = "custom",
+                        total = 20,
+                        title = "",
+                        display_pct = TRUE
+                      )),
+                    div(
+                      withSpinner(ui_element = uiOutput("spinner_output"), type = 7,color = "#458b74", proxy.height = "70px", size = 1)
+                    )
+                  ),
                   height = "100px"
                 )
               )
@@ -348,10 +355,15 @@ server <- function(input, output, session) {
     bg_process$values <- TRUE
   })
   
+  output$spinner_output <- renderUI({
+
+    Sys.sleep(5)
+    HTML("") 
+  })
+  
   observe({
     if(bg_process$values == TRUE){
       while(bg_results$values$is_alive()){
-        invalidateLater(10000, session)
         progress = bg_results$values$read_output_lines()
         if(length(progress) != 0){
           progress_check = which(grepl("Progress", progress, fixed = T))
