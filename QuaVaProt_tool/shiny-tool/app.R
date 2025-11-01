@@ -9,6 +9,17 @@ library(jsonlite)
 library(callr)
 library(shinycssloaders)
 
+#set cashe dir to temp
+options(sass.cache = "/tmp/app_cache/sass/")
+
+custom_theme <- bs_theme(
+  version = 5, 
+  bootswatch = "cosmo",
+  primary = '#222222',
+  base_font = "Helvetica")
+
+custom_theme_set <- bs_theme_dependencies(theme = custom_theme, cache = sass::sass_file_cache(dir = "/tmp/app_cache/sass/"))
+
 # Define server logic ----
 server <- function(input, output, session) {
   
@@ -38,11 +49,7 @@ server <- function(input, output, session) {
       title = "QuaVaPeptidePicker",
       id = "Quava_home",
       position = "fixed-top",
-      theme = bs_theme(
-        version = 5, 
-        bootswatch = "cosmo",
-        primary = '#222222',
-        base_font = "Helvetica"),
+      theme = custom_theme,
       nav_item(
         tags$a(
           icon("house"),
@@ -339,8 +346,10 @@ server <- function(input, output, session) {
                 )
               )
     )
+
     bg_results$values <- r_bg(func =
-                                function(Table, progress_bar_show, session){
+                                function(Table, progress_bar_show, session, app_dir){
+                                  setwd(app_dir)
                                   source(file = "data/functions/pipeline_functions.R", local = TRUE)
                                   mutation_processor(Table, progress_bar_show, session)
                                 },
@@ -348,8 +357,10 @@ server <- function(input, output, session) {
                               args = list(
                                 Table = tmp_upload,
                                 progress_bar_show = FALSE,
-                                session = session
+                                session = session,
+                                app_dir = getwd()
                               ),
+                              wd = tempdir(),
                               stdout = "|"
                               )
     bg_process$values <- TRUE
@@ -357,7 +368,12 @@ server <- function(input, output, session) {
   
   output$spinner_output <- renderUI({
     Sys.sleep(5)
-    HTML("") 
+    
+  })
+  
+  observe({
+    invalidateLater(millis = 10000, session = session)
+    session$sendCustomMessage("heartbeat", list(time = Sys.time()))
   })
   
   observe({
@@ -722,7 +738,12 @@ server <- function(input, output, session) {
 }
 
 #UI
-ui <- uiOutput("UI_output")
+ui <- 
+  mainPanel(
+    custom_theme_set,
+    uiOutput("UI_output"),
+    width = 12
+  )
 
 # Run the app ----
 shinyApp(ui = ui, server = server)
