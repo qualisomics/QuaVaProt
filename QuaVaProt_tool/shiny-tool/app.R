@@ -110,10 +110,7 @@ server <- function(input, output, session) {
                     br(),
                     p("To get started, fill and upload the template below:"),
                     downloadButton("sample_pp_upload", "Download Template", style = "width:250px;"),
-                    fileInput("file1", "Upload CSV File",
-                              accept = c("text/csv",
-                                         "text/comma-separated-values,text/plain",
-                                         ".csv"), width = "250px"),
+                    uiOutput("upload_progess"),
                     layout_columns(
                       col_widths = c(-10,2),
                       uiOutput("render_download_button")
@@ -282,38 +279,50 @@ server <- function(input, output, session) {
   df_peptide_tool_output <- reactiveValues(values = NULL)
   bg_results <- reactiveValues(values = NULL)
   bg_process <- reactiveValues(values = FALSE)
+  track_progress <- reactiveValues(values = 0)
   
   observeEvent(input$close_modal, {
     removeModal()
   })
-  
+
   observeEvent(input$submit.button, {
     removeModal()
     tmp_upload <- isolate(dfupload())
     entries_processed = nrow(tmp_upload)
-    showModal(session = session,
-              modalDialog(
-                easyClose = F,
-                size = "l",
-                title = 
-                  layout_columns(
-                    height = "70px",
-                    col_widths = c(5, -5, 2),
-                    row_heights = c("auto"),
-                    style = "margin: 0px; padding: 0px; width: 770px;",
-                    card(
-                      style = "border: none; margin: 0px; padding: 0px;",
-                      h4(paste("Processing", entries_processed, "entries"))
-                    ),
-                    card(
-                      style = "border: none; margin: 0px; padding: 0px;",
-                      actionButton("close_modal",label = "Close")
-                    )
-                  ),
-                footer = NULL,
-                card(
-                  style = "border: none;",
-                  tags$style(HTML('
+
+    bg_results$values <- r_bg(func =
+                                function(Table, progress_bar_show, session, app_dir){
+                                  setwd(app_dir)
+                                  source(file = "data/functions/pipeline_functions.R", local = TRUE)
+                                  read_write_checker()
+                                  # mutation_processor(Table, progress_bar_show, session)
+                                },
+                              supervise = TRUE,
+                              args = list(
+                                Table = tmp_upload,
+                                progress_bar_show = FALSE,
+                                session = session,
+                                app_dir = getwd()
+                              ),
+                              wd = tempdir(),
+                              stdout = "|"
+                              )
+    bg_process$values <- TRUE
+    track_progress$values <- 1
+  })
+  
+  output$upload_progess <- renderUI({
+    if(track_progress$values == 0){
+      div(
+        fileInput("file1", "Upload CSV File",
+                  accept = c("text/csv",
+                             "text/comma-separated-values,text/plain",
+                             ".csv"), width = "250px")
+      )
+    }else if(track_progress$values == 1){
+      card(
+        style = "border: none; background-color: #f2f2f2",
+        tags$style(HTML('
                     .progress-group {
                       .progress {
                       height: 30px !important; border-radius: 10px;
@@ -327,96 +336,68 @@ server <- function(input, output, session) {
                     }
 
                   ')),
-                  layout_columns(
-                    col_widths = c(2,-10),
-                    # div(
-                    #   progressBar(
-                    #     id = "pb2",
-                    #     value = 0,
-                    #     status = "custom",
-                    #     total = 20,
-                    #     title = "",
-                    #     display_pct = TRUE
-                    #   )),
-                    div(
-                      withSpinner(ui_element = uiOutput("spinner_output"), type = 7,color = "#458b74", proxy.height = "70px", size = 1)
-                    )
-                  ),
-                  height = "100px"
-                )
-              )
-    )
-
-    bg_results$values <- r_bg(func =
-                                function(Table, progress_bar_show, session, app_dir){
-                                  setwd(app_dir)
-                                  source(file = "data/functions/pipeline_functions.R", local = TRUE)
-                                  mutation_processor(Table, progress_bar_show, session)
-                                },
-                              supervise = TRUE,
-                              args = list(
-                                Table = tmp_upload,
-                                progress_bar_show = FALSE,
-                                session = session,
-                                app_dir = getwd()
-                              ),
-                              wd = tempdir(),
-                              stdout = "|"
-                              )
-    bg_process$values <- TRUE
-  })
-  
-  output$spinner_output <- renderUI({
-    Sys.sleep(5)
-    
+        layout_columns(
+          col_widths = c(2,-10),
+          div(
+            progressBar(
+              id = "pb2",
+              value = 0,
+              status = "custom",
+              total = 20,
+              title = "",
+              display_pct = TRUE
+            ))
+        ),
+        height = "100px"
+      )
+    }else{
+      div()
+    }
   })
   
   observe({
     invalidateLater(millis = 10000, session = session)
-    session$sendCustomMessage("heartbeat", list(time = Sys.time()))
-  })
-  
-  observe({
     if(bg_process$values == TRUE){
-      while(bg_results$values$is_alive()){
-        # progress = bg_results$values$read_output_lines()
-        # if(length(progress) != 0){
-        #   progress_check = which(grepl("Progress", progress, fixed = T))
-        #   if(length(progress_check) != 0){
-        #     progress_step = progress[progress_check[length(progress_check)]]
-        #     progress_step = as.numeric(substr(progress_step, 15, nchar(progress_step)-1))
-        #     
-        #     updateProgressBar(
-        #       session = session,
-        #       status = "custom",
-        #       id = "pb2",
-        #       value = progress_step, total = 20,
-        #       title = paste("Working...")
-        #     )
-        #   }else if(grepl("Initializingjob", progress)){
-        #     updateProgressBar(
-        #       session = session,
-        #       status = "custom",
-        #       id = "pb2",
-        #       value = 0, total = 20,
-        #       title = paste("Initializing job")
-        #     )
-        #   }else if(grepl("Checkingconnection", progress)){
-        #     updateProgressBar(
-        #       session = session,
-        #       status = "custom",
-        #       id = "pb2",
-        #       value = 0, total = 20,
-        #       title = paste("Checking connection")
-        #     )
-        #   }
-        # }
-        Sys.sleep(2)
+      if(bg_results$values$is_alive()){
+        progress = bg_results$values$read_output_lines()
+        if(length(progress) != 0){
+          progress_check = which(grepl("Progress", progress, fixed = T))
+          if(length(progress_check) != 0){
+            progress_step = progress[progress_check[length(progress_check)]]
+            progress_step = as.numeric(substr(progress_step, 15, nchar(progress_step)-1))
+            updateProgressBar(
+              session = session,
+              status = "custom",
+              id = "pb2",
+              value = progress_step, total = 20,
+              title = paste("Working...")
+            )
+          }else if(grepl("Initializingjob", progress)){
+            updateProgressBar(
+              session = session,
+              status = "custom",
+              id = "pb2",
+              value = 0, total = 20,
+              title = paste("Initializing job")
+            )
+          }else if(grepl("Checkingconnection", progress)){
+            updateProgressBar(
+              session = session,
+              status = "custom",
+              id = "pb2",
+              value = 0, total = 20,
+              title = paste("Checking connection")
+            )
+          }
+        }
+        session$sendCustomMessage("heartbeat", list(time = Sys.time()))
+      }else{
+        df_peptide_tool_output$values <- bg_results$values$get_result()
+        df_peptide_tool_output_filtered$values <- df_peptide_tool_output$values
+        removeModal()
+        bg_process$values <- FALSE
+        track_progress$values <- 2
       }
-      df_peptide_tool_output$values <- bg_results$values$get_result()
-      df_peptide_tool_output_filtered$values <- df_peptide_tool_output$values
-      removeModal()
-      bg_process$values <- FALSE
     }
   })
   
@@ -447,7 +428,7 @@ server <- function(input, output, session) {
           ordering = F,
           dom =  'rtp',
           scrollX = TRUE,
-          scrollY = "450px",
+          scrollY = "auto",
           columnDefs = list(
             list(className = 'dt-center', targets = "_all")
           )
@@ -468,27 +449,25 @@ server <- function(input, output, session) {
                       col_widths = c(2,-8, 2),
                       row_heights = c("auto"),
                       style = "margin: 0; padding: 0;",
-                      card(
-                        style = "border: none; margin: 0; padding: 0;",
+                      div(
+                        style = "border: none; padding-left: 30px; padding-top: 5px;",
                         h1("Confirm")
                       ),
-                      card(
-                        style = "border: none; margin: 0; padding: 0;",
+                      div(
+                        style = "border: none; margin: 0; padding-right: 10px; align-self: flex-end;",
                         modalButton(label = "Close")
                       )
                     )
                   ),
-                footer = actionButton("submit.button", "Submit"),
+                footer = div(actionButton("submit.button", "Submit")),
           
-                card(
-                  style = "border: none;",
+                div(
+                  style = "border: none; height: auto;",
                   layout_columns(
                     col_widths = c(12),
                     row_heights = c("auto"),
                     DT::dataTableOutput("confirm_table", width = "99%"),
-                    height = "600px"
-
-                    
+                    height = "500px"
                   )
                 )
               )
@@ -512,7 +491,9 @@ server <- function(input, output, session) {
     DT::renderDataTable({
       datatable(
         data.frame(
-          df_peptide_tool_output_filtered$values[,cols]),
+          # df_peptide_tool_output_filtered$values[,cols]
+          df_peptide_tool_output_filtered$values
+          ),
         escape = FALSE,
         selection = "none",
         filter = "none",
