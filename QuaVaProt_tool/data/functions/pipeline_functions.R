@@ -2741,3 +2741,40 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   return(Table2)
 }
 
+#debug
+#check all files read/writability
+read_write_checker = function(){
+  file_list = c("Ensembl_cdna_library.txt", "ref_pep_list.txt", "Trpsin_digestion_efficiency.txt", 
+                "Uniprot_Human_proteome_peptides.txt", "Uniprot_isoform_library.txt", "uniprotkb_proteome_human.fasta")
+  
+  #make table
+  tmp = data.frame(file_list, exists = F, read = F, write = F)
+  
+  #check if present
+  #modes: 2 = write, 4 = read
+  
+  for(n in 1:nrow(tmp)){
+    if(file.exists(paste("data/", file_list[n], sep = ""))){
+      tmp$exists[n] = TRUE
+    }
+    if(file.access(paste("data/", file_list[n], sep = ""), mode = 4) == 0){
+      tmp$read[n] = TRUE
+    }
+    if(file.access(paste("data/", file_list[n], sep = ""), mode = 2) == 0){
+      tmp$write[n] = TRUE
+    }
+  }
+  return(tmp)
+}
+
+
+
+
+
+
+
+
+
+
+
+
