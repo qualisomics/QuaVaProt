@@ -2087,18 +2087,18 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   #uniprot, ensembl, dbsnp,
   print("Checkingconnection")
   
-  if(progress_bar_show==TRUE){
-    if(!check_api_running()){
-      updateProgressBar(status = "danger",
-                        session = session,
-                        id = "pb2",
-                        status = "custom2",
-                        value = 1, total = 20,
-                        title = paste("Failed, API Unreachable")
-      )
-      break
-    }
+
+  if(!check_api_running()){
+    # updateProgressBar(status = "danger",
+    #                   session = session,
+    #                   id = "pb2",
+    #                   status = "custom2",
+    #                   value = 1, total = 20,
+    #                   title = paste("Failed, API Unreachable")
+    # )
+    break
   }
+  
 
   if(progress_bar_show==TRUE){
     updateProgressBar(
@@ -2764,6 +2764,12 @@ read_write_checker = function(){
       tmp$write[n] = TRUE
     }
   }
+  
+  tmp2 = data.frame(file_list="api reachable", exists = F, read = NA, write = NA)
+  tmp2$exists[1] = check_api_running()
+  
+  tmp = rbind(tmp, tmp2)
+  
   return(tmp)
 }
 
