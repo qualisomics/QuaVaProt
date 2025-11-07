@@ -12,13 +12,13 @@ WORKDIR /srv/shiny-server/
 # Copy the Shiny app to the image
 COPY shiny-tool /srv/shiny-server/
 
-# Ensure the Shiny user owns the app directory
-RUN chown -R shiny:shiny /srv/shiny-server/
-
 # Create a data folder inside the container with proper permissions
 RUN mkdir -p /srv/shiny-server/data && \
     chown -R shiny:shiny /srv/shiny-server/ && \
     chmod -R 775 /srv/shiny-server/
+
+# Ensure the Shiny user owns the app directory
+RUN chown -R shiny:shiny /srv/shiny-server/data
 
 #add conf to disable timeouts
 COPY shiny-server.conf /etc/shiny-server/shiny-server.conf
