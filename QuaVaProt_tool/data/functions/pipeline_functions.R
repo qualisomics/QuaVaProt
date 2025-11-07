@@ -1440,32 +1440,48 @@ Isoform_Checker <- function(Table, Uniprot_ids, Tryptic_peptides, Isoform_Peptid
   return(m)
 }
 Isoform_filter <- function(Table, Uniprot_ids, Tryptic_peptides, Passed){
+  print("step 14 start")
   if (file.exists("data/Uniprot_isoform_library.txt")){
+    print("file Uniprot_isoform_library.txt exists")
     Isoform_table = read.csv("data/Uniprot_isoform_library.txt")
+    print("file is read")
     need_ids = unique(Uniprot_ids)
+    print("isolating ids needed")
     index = grep(TRUE, is.na(need_ids))
+    print("index of ids")
     if (length(index) != 0){
+      print("adjusting id list")
       need_ids = need_ids[-c(index)]
     }
     index = grep(FALSE, (need_ids %in% Isoform_table$Uniprot_id))
+    print("which ids not in table")
     need_ids = need_ids[index]
+    print("final id list")
     if (length(need_ids) != 0){
+      print("ids not in file, fetching")
       Isoform_table2 <- Isoform_retriever(unique(need_ids))
       Isoform_table2 <- unique(Isoform_table2)
       Isoform_table = rbind(Isoform_table, Isoform_table2)
+      print("tries to write")
       write.csv(Isoform_table,file = "data/Uniprot_isoform_library.txt", row.names = FALSE)
+      print("write complete")
     }
   }else{
+    print("no file detected, fetching all ids")
     Isoform_table <- Isoform_retriever(Uniprot_ids)
     Isoform_table <- unique(Isoform_table)
     row.names(Isoform_table) <- NULL
+    print("tries to write 2")
     write.csv(Isoform_table, file = "data/Uniprot_isoform_library.txt", row.names = FALSE)
+    print("write complete 2")
   }
+  print("check isoforms")
   df_isoform <- Isoform_Checker(Table, 
                                 Uniprot_ids, 
                                 Tryptic_peptides,
                                 Isoform_table, 
                                 Passed)
+  print("check complete")
   return(df_isoform)
 }
 Human_proteome_retriever <- function(){
