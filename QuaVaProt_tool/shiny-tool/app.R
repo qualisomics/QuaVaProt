@@ -360,6 +360,7 @@ server <- function(input, output, session) {
     if(bg_process$values == TRUE){
       if(bg_results$values$is_alive()){
         progress = bg_results$values$read_output_lines()
+        tmp <<- progress
         if(length(progress) != 0){
           progress_check = which(grepl("Progress", progress, fixed = T))
           if(!is.null(progress_check) && length(progress_check) > 0){
@@ -372,7 +373,7 @@ server <- function(input, output, session) {
               value = progress_step, total = 20,
               title = paste("Working...")
             )
-          }else if(grepl("Initializingjob", progress)){
+          }else if(any(grepl("Initializingjob", progress))){
             updateProgressBar(
               session = session,
               status = "custom",
@@ -380,7 +381,7 @@ server <- function(input, output, session) {
               value = 0, total = 20,
               title = paste("Initializing job")
             )
-          }else if(grepl("Checkingconnection", progress)){
+          }else if(any(grepl("Checkingconnection", progress))){
             updateProgressBar(
               session = session,
               status = "custom",
