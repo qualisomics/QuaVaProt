@@ -360,6 +360,7 @@ server <- function(input, output, session) {
     if(bg_process$values == TRUE){
       if(bg_results$values$is_alive()){
         progress = bg_results$values$read_output_lines()
+        tmp <<- progress
         if(length(progress) != 0){
           progress_check = which(grepl("Progress", progress, fixed = T))
           if(!is.null(progress_check) && length(progress_check) > 0){
@@ -392,11 +393,24 @@ server <- function(input, output, session) {
         }
         session$sendCustomMessage("heartbeat", list(time = Sys.time()))
       }else{
-        df_peptide_tool_output$values <- bg_results$values$get_result()
-        df_peptide_tool_output_filtered$values <- df_peptide_tool_output$values
-        removeModal()
-        bg_process$values <- FALSE
-        track_progress$values <- 2
+        if (is.null(df_peptide_tool_output$values)) {
+          df_peptide_tool_output$values <- tryCatch(
+            {
+              bg_results$values$get_result()
+            },
+            error = function(e) {
+              message("Temporary failure, retrying: ", e$message)
+              NULL
+            }
+          )
+          if (!is.null(df_peptide_tool_output$values)) {
+            df_peptide_tool_output_filtered$values <- df_peptide_tool_output$values
+            bg_process$values <- FALSE
+            track_progress$values <- 2
+          } else {
+            output$status <- renderText("Job finished but result not ready yet, retrying...")
+          }
+        }
       }
     }
   })
@@ -728,5 +742,4 @@ ui <-
 
 # Run the app ----
 shinyApp(ui = ui, server = server)
-
 
