@@ -1,6 +1,6 @@
 Path = file.path(getwd(), "data")
 message(Path)
-if(file.exists(paste(Path, "Ensembl_cdna_library.txt", sep = ""))){
+if(file.exists(paste(Path, "/Ensembl_cdna_library.txt", sep = ""))){
   message(paste(Path, "/Ensembl_cdna_library.txt", sep = ""))
   message("Initializingjob")
 }
@@ -1444,9 +1444,9 @@ Isoform_Checker <- function(Table, Uniprot_ids, Tryptic_peptides, Isoform_Peptid
 }
 Isoform_filter <- function(Table, Uniprot_ids, Tryptic_peptides, Passed){
   message("step 14 start")
-  if (file.exists(paste(Path, "Uniprot_isoform_library.txt", sep = ""))){
+  if (file.exists(paste(Path, "/Uniprot_isoform_library.txt", sep = ""))){
     message("file Uniprot_isoform_library.txt exists")
-    Isoform_table = read.csv(paste(Path, "Uniprot_isoform_library.txt", sep = ""))
+    Isoform_table = read.csv(paste(Path, "/Uniprot_isoform_library.txt", sep = ""))
     message("file is read")
     need_ids = unique(Uniprot_ids)
     message("isolating ids needed")
@@ -2292,8 +2292,8 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   }
   
   #get cdna list
-  if (file.exists(paste(Path, "Ensembl_cdna_library.txt", sep = ""))){
-    cdna_list = read.csv(paste(Path, "Ensembl_cdna_library.txt", sep = ""))
+  if (file.exists(paste(Path, "/Ensembl_cdna_library.txt", sep = ""))){
+    cdna_list = read.csv(paste(Path, "/Ensembl_cdna_library.txt", sep = ""))
     need_ids = unique(Table2$transcript_id)
     index = grep(FALSE, (need_ids %in% cdna_list$ensembl_transcript_id))
     need_ids = need_ids[index]
@@ -2311,7 +2311,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       row.names(cdna_list2) <- NULL
       if(nrow(cdna_list2) != 0){
         cdna_list = rbind(cdna_list, cdna_list2)
-        write.csv(cdna_list, file = paste(Path, "Ensembl_cdna_library.txt", sep = ""), row.names = FALSE)
+        write.csv(cdna_list, file = paste(Path, "/Ensembl_cdna_library.txt", sep = ""), row.names = FALSE)
       }
       rm(cdna_list2)
     }
