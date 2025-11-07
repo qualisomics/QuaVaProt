@@ -294,8 +294,8 @@ server <- function(input, output, session) {
                                 function(Table, progress_bar_show, session, app_dir){
                                   setwd(app_dir)
                                   source(file = "data/functions/pipeline_functions.R", local = TRUE)
-                                  read_write_checker()
-                                  # mutation_processor(Table, progress_bar_show, session)
+                                  #read_write_checker()
+                                  mutation_processor(Table, progress_bar_show, session)
                                 },
                               supervise = TRUE,
                               args = list(
@@ -356,7 +356,7 @@ server <- function(input, output, session) {
   })
   
   observe({
-    invalidateLater(millis = 10000, session = session)
+    invalidateLater(millis = 5000, session = session)
     if(bg_process$values == TRUE){
       if(bg_results$values$is_alive()){
         progress = bg_results$values$read_output_lines()
@@ -491,8 +491,8 @@ server <- function(input, output, session) {
     DT::renderDataTable({
       datatable(
         data.frame(
-          # df_peptide_tool_output_filtered$values[,cols]
-          df_peptide_tool_output_filtered$values
+          df_peptide_tool_output_filtered$values[,cols]
+          #df_peptide_tool_output_filtered$values
           ),
         escape = FALSE,
         selection = "none",
