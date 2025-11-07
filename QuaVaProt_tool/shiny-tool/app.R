@@ -360,7 +360,6 @@ server <- function(input, output, session) {
     if(bg_process$values == TRUE){
       if(bg_results$values$is_alive()){
         progress = bg_results$values$read_output_lines()
-        tmp <<- progress
         if(length(progress) != 0){
           progress_check = which(grepl("Progress", progress, fixed = T))
           if(!is.null(progress_check) && length(progress_check) > 0){
