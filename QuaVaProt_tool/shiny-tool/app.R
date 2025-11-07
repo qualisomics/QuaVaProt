@@ -319,7 +319,7 @@ server <- function(input, output, session) {
     entries_processed = nrow(tmp_upload)
     
     df_peptide_tool_output$values <- mutation_processor(Table = tmp_upload, progress_bar_show = FALSE, session = session)
-    df_peptide_tool_output_filtered$values <<- df_peptide_tool_output$values
+    df_peptide_tool_output_filtered$values <- df_peptide_tool_output$values
     
     track_progress$values <- 2
     
@@ -768,4 +768,5 @@ ui <-
 
 # Run the app ----
 shinyApp(ui = ui, server = server)
+
 
