@@ -1,4 +1,7 @@
-if(file.exists("data/Ensembl_cdna_library.txt")){
+Path = file.path(getwd(), "data")
+message(Path)
+if(file.exists(paste(Path, "Ensembl_cdna_library.txt", sep = ""))){
+  message(paste(Path, "/Ensembl_cdna_library.txt", sep = ""))
   message("Initializingjob")
 }
 
@@ -1299,8 +1302,8 @@ trypsin = function(sequence, simple_digestion=TRUE, with_location=FALSE, with_ef
   }
   
   if (!(exists("dig_table"))){
-    if (file.exists("data/Trpsin_digestion_efficiency.txt")){
-      dig_table = read.csv("data/Trpsin_digestion_efficiency.txt")
+    if (file.exists(paste(Path, "/Trpsin_digestion_efficiency.txt", sep = ""))){
+      dig_table = read.csv(paste(Path, "/Trpsin_digestion_efficiency.txt", sep = ""))
       assign("dig_table", dig_table, envir = .GlobalEnv)
     }else{
       message("Error: No digestion table file found")
@@ -1441,9 +1444,9 @@ Isoform_Checker <- function(Table, Uniprot_ids, Tryptic_peptides, Isoform_Peptid
 }
 Isoform_filter <- function(Table, Uniprot_ids, Tryptic_peptides, Passed){
   message("step 14 start")
-  if (file.exists("data/Uniprot_isoform_library.txt")){
+  if (file.exists(paste(Path, "Uniprot_isoform_library.txt", sep = ""))){
     message("file Uniprot_isoform_library.txt exists")
-    Isoform_table = read.csv("data/Uniprot_isoform_library.txt")
+    Isoform_table = read.csv(paste(Path, "Uniprot_isoform_library.txt", sep = ""))
     message("file is read")
     need_ids = unique(Uniprot_ids)
     message("isolating ids needed")
@@ -1463,7 +1466,7 @@ Isoform_filter <- function(Table, Uniprot_ids, Tryptic_peptides, Passed){
       Isoform_table2 <- unique(Isoform_table2)
       Isoform_table = rbind(Isoform_table, Isoform_table2)
       message("tries to write")
-      write.csv(Isoform_table,file = "data/Uniprot_isoform_library.txt", row.names = FALSE)
+      write.csv(Isoform_table,file = paste(Path, "/Uniprot_isoform_library.txt", sep = ""), row.names = FALSE)
       message("write complete")
     }
   }else{
@@ -1472,7 +1475,7 @@ Isoform_filter <- function(Table, Uniprot_ids, Tryptic_peptides, Passed){
     Isoform_table <- unique(Isoform_table)
     row.names(Isoform_table) <- NULL
     message("tries to write 2")
-    write.csv(Isoform_table, file = "data/Uniprot_isoform_library.txt", row.names = FALSE)
+    write.csv(Isoform_table, file = paste(Path, "/Uniprot_isoform_library.txt", sep = ""), row.names = FALSE)
     message("write complete 2")
   }
   message("check isoforms")
@@ -1535,8 +1538,8 @@ Human_proteome_checker <- function(Table, Mutant_peptides, Reference_peptides,
   return(m)
 }
 Human_proteome_filter <- function(Table, Mutant_peptides, Passed, Allowance, Peptide_type){
-  if (file.exists("data/Uniprot_Human_proteome_peptides.txt")){
-    peplist = scan("data/Uniprot_Human_proteome_peptides.txt", character())
+  if (file.exists(paste(Path, "/Uniprot_Human_proteome_peptides.txt", sep = ""))){
+    peplist = scan(paste(Path, "/Uniprot_Human_proteome_peptides.txt", sep = ""), character())
   }else{
     # peplist <- Human_proteome_retriever()
     # write(peplist,file = "Uniprot_Human_proteome_peptides.txt")
@@ -2001,11 +2004,11 @@ Reference_peptide_list_generator = function(){
   return(ref_pep_list)
 }
 Reference_peptide_list_checker = function(Table, Peptides_column, Passed){
-  if (file.exists("data/ref_pep_list.txt")){
-    ref_pep_list = scan(file = "data/ref_pep_list.txt", character())
+  if (file.exists(paste(Path, "/ref_pep_list.txt", sep = ""))){
+    ref_pep_list = scan(file = paste(Path, "/ref_pep_list.txt", sep = ""), character())
   }else{
     ref_pep_list = Reference_peptide_list_generator()
-    write(ref_pep_list, file = "data/ref_pep_list.txt")
+    write(ref_pep_list, file = paste(Path, "/ref_pep_list.txt", sep = ""))
   }
   
   #check if native peptide is in reference peptide list
@@ -2289,8 +2292,8 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   }
   
   #get cdna list
-  if (file.exists("data/Ensembl_cdna_library.txt")){
-    cdna_list = read.csv("data/Ensembl_cdna_library.txt")
+  if (file.exists(paste(Path, "Ensembl_cdna_library.txt", sep = ""))){
+    cdna_list = read.csv(paste(Path, "Ensembl_cdna_library.txt", sep = ""))
     need_ids = unique(Table2$transcript_id)
     index = grep(FALSE, (need_ids %in% cdna_list$ensembl_transcript_id))
     need_ids = need_ids[index]
@@ -2308,7 +2311,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       row.names(cdna_list2) <- NULL
       if(nrow(cdna_list2) != 0){
         cdna_list = rbind(cdna_list, cdna_list2)
-        write.csv(cdna_list,file = "data/Ensembl_cdna_library.txt", row.names = FALSE)
+        write.csv(cdna_list, file = paste(Path, "Ensembl_cdna_library.txt", sep = ""), row.names = FALSE)
       }
       rm(cdna_list2)
     }
