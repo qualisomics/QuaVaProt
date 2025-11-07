@@ -362,7 +362,7 @@ server <- function(input, output, session) {
         progress = bg_results$values$read_output_lines()
         if(length(progress) != 0){
           progress_check = which(grepl("Progress", progress, fixed = T))
-          if(length(progress_check) != 0){
+          if(!is.null(progress_check) && length(progress_check) > 0){
             progress_step = progress[progress_check[length(progress_check)]]
             progress_step = as.numeric(substr(progress_step, 15, nchar(progress_step)-1))
             updateProgressBar(
