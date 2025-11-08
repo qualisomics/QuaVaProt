@@ -1,10 +1,3 @@
-Path = file.path(getwd(), "data")
-message(Path)
-if(file.exists(paste(Path, "/Ensembl_cdna_library.txt", sep = ""))){
-  message(paste(Path, "/Ensembl_cdna_library.txt", sep = ""))
-  message("Initializingjob")
-}
-
 library(UniProt.ws)
 library(dplyr)
 library(httr, include.only = c("GET", "POST", "accept", "content_type", "content_type_json"))
@@ -12,6 +5,17 @@ library(jsonlite)
 library(bioseq)
 library(rentrez)
 library(shiny)
+library(RSQLite)
+library(DBI)
+
+#open connection to db
+Path = file.path(getwd(), "data")
+message(Path)
+if(file.exists(paste(Path, "/QuavaPeptidePicker_data.sqlite", sep = ""))){
+  con <- dbConnect(RSQLite::SQLite(), paste(Path, "/QuavaPeptidePicker_data.sqlite", sep = ""))
+  message(paste(Path, "/QuavaPeptidePicker_data.sqlite", sep = ""))
+  message("Initializingjob")
+}
 
 #checker for uniprot,ensembl,dbsnp
 check_api_running = function(){
@@ -1150,7 +1154,7 @@ Validation_checker_2 <- function(hgvsp, WT_seq, Var_seq){
 }
 
 #Mutant peptide generation
-MSIIFS_pep_generator <- function(hgvsp, Var_seq, return="All"){
+MSIIFS_pep_generator <- function(hgvsp, Var_seq, return="All", con){
   #generates variant sequences for missense, stop_gained, inframe_deletion, 
   #inframe_insertion mutation consequences
   if((!(is.na(hgvsp))) & (!(is.na(Var_seq)))){
@@ -1216,7 +1220,7 @@ MSIIFS_pep_generator <- function(hgvsp, Var_seq, return="All"){
       l = nchar(hgvsp)
       position1 = as.numeric(substr(hgvsp, 2, l-1))
     }
-    df3 = trypsin(Var_seq, TRUE, TRUE, FALSE)
+    df3 = trypsin(Var_seq, TRUE, TRUE, FALSE, con)
     pep=NA
     All=NULL
     for (i in 1:nrow(df3)){ 
@@ -1257,7 +1261,7 @@ MSIIFS_pep_generator <- function(hgvsp, Var_seq, return="All"){
 }
 
 #Trypsin
-trypsin = function(sequence, simple_digestion=TRUE, with_location=FALSE, with_efficiency=FALSE){
+trypsin = function(sequence, simple_digestion=TRUE, with_location=FALSE, with_efficiency=FALSE, con){
   sequence2 = sequence
   ignore = c("KP", "RP", "K*", "R*")
   splits = c("K", "R")
@@ -1302,8 +1306,8 @@ trypsin = function(sequence, simple_digestion=TRUE, with_location=FALSE, with_ef
   }
   
   if (!(exists("dig_table"))){
-    if (file.exists(paste(Path, "/Trpsin_digestion_efficiency.txt", sep = ""))){
-      dig_table = read.csv(paste(Path, "/Trpsin_digestion_efficiency.txt", sep = ""))
+    if (file.exists(paste(Path, "/QuavaPeptidePicker_data.sqlite", sep = ""))){
+      dig_table = dbReadTable(con, "Trpsin_digestion_efficiency")
       assign("dig_table", dig_table, envir = .GlobalEnv)
     }else{
       message("Error: No digestion table file found")
@@ -1377,7 +1381,7 @@ Residue_Filter <- function(Table, Peptides_Column, Residue_to_Filter, Peptide_ty
   names(m)[names(m) == 'lable'] <- lable
   return(m)
 }
-Isoform_retriever <- function(Uniprot_ids){
+Isoform_retriever <- function(Uniprot_ids, con){
   ids <- unique(Uniprot_ids)
   index = grep(TRUE, (is.na(ids)))
   if (length(index) != 0){
@@ -1409,7 +1413,7 @@ Isoform_retriever <- function(Uniprot_ids){
     b <- grep(peps$Uniprot_id[n], seqtable$Accession)
     peps$Isoforms[n] = length(b)
     for (g in b){
-      dig = trypsin(seqtable$Sequence[g], TRUE, FALSE, FALSE)
+      dig = trypsin(seqtable$Sequence[g], TRUE, FALSE, FALSE, con)
       peplist <- c(peplist, dig$peptide)
     }
     peplist <- paste(as.character(peplist), collapse = ",")
@@ -1418,8 +1422,13 @@ Isoform_retriever <- function(Uniprot_ids){
   }
   return(peps)
 }
-Isoform_Checker <- function(Table, Uniprot_ids, Tryptic_peptides, Isoform_Peptide_table, Passed){
+Isoform_Checker <- function(Table, Uniprot_ids, Tryptic_peptides, con, Passed){
+  
+  id_list <- paste0("'", paste(Uniprot_ids, collapse = "','"), "'")
+  query <- paste0("SELECT * FROM Uniprot_isoform_library WHERE Uniprot_id IN (", id_list, ")")
+  Isoform_Peptide_table <- dbGetQuery(con, query)
   Isoform_Peptide_table = unique(Isoform_Peptide_table)
+
   check = rep(FALSE, nrow(Table))
   Iso = rep(NA, nrow(Table))
   if (nrow(Isoform_Peptide_table) != 0){
@@ -1442,52 +1451,45 @@ Isoform_Checker <- function(Table, Uniprot_ids, Tryptic_peptides, Isoform_Peptid
   m <- cbind(m, Isoforms=Iso)
   return(m)
 }
-Isoform_filter <- function(Table, Uniprot_ids, Tryptic_peptides, Passed){
-  message("step 14 start")
-  if (file.exists(paste(Path, "/Uniprot_isoform_library.txt", sep = ""))){
-    message("file Uniprot_isoform_library.txt exists")
-    Isoform_table = read.csv(paste(Path, "/Uniprot_isoform_library.txt", sep = ""))
-    message("file is read")
+Isoform_filter <- function(Table, Uniprot_ids, Tryptic_peptides, Passed, con){
+  if (file.exists(paste(Path, "/QuavaPeptidePicker_data.sqlite", sep = ""))){
     need_ids = unique(Uniprot_ids)
-    message("isolating ids needed")
     index = grep(TRUE, is.na(need_ids))
-    message("index of ids")
     if (length(index) != 0){
-      message("adjusting id list")
       need_ids = need_ids[-c(index)]
     }
-    index = grep(FALSE, (need_ids %in% Isoform_table$Uniprot_id))
-    message("which ids not in table")
-    need_ids = need_ids[index]
-    message("final id list")
+    query <- paste0("
+      SELECT id AS Uniprot_id
+      FROM (SELECT '", paste(need_ids, collapse = "' AS id UNION ALL SELECT '"), "' AS id)
+      WHERE id NOT IN (SELECT Uniprot_id FROM Uniprot_isoform_library)
+    ")
+    need_ids <- dbGetQuery(con, query)$Uniprot_id
     if (length(need_ids) != 0){
       message("ids not in file, fetching")
-      Isoform_table2 <- Isoform_retriever(unique(need_ids))
+      Isoform_table2 <- Isoform_retriever(unique(need_ids), con)
       Isoform_table2 <- unique(Isoform_table2)
-      Isoform_table = rbind(Isoform_table, Isoform_table2)
-      message("tries to write")
-      write.csv(Isoform_table,file = paste(Path, "/Uniprot_isoform_library.txt", sep = ""), row.names = FALSE)
+      dbWriteTable(con, name = "Uniprot_isoform_library", value = Isoform_table2, append = TRUE, row.names = FALSE)
       message("write complete")
     }
   }else{
-    message("no file detected, fetching all ids")
-    Isoform_table <- Isoform_retriever(Uniprot_ids)
-    Isoform_table <- unique(Isoform_table)
-    row.names(Isoform_table) <- NULL
-    message("tries to write 2")
-    write.csv(Isoform_table, file = paste(Path, "/Uniprot_isoform_library.txt", sep = ""), row.names = FALSE)
-    message("write complete 2")
+    # message("no file detected, fetching all ids")
+    # Isoform_table <- Isoform_retriever(Uniprot_ids)
+    # Isoform_table <- unique(Isoform_table)
+    # row.names(Isoform_table) <- NULL
+    # message("tries to write 2")
+    # write.csv(Isoform_table, file = paste(Path, "/Uniprot_isoform_library.txt", sep = ""), row.names = FALSE)
+    # message("write complete 2")
   }
   message("check isoforms")
   df_isoform <- Isoform_Checker(Table, 
                                 Uniprot_ids, 
                                 Tryptic_peptides,
-                                Isoform_table, 
+                                con, 
                                 Passed)
   message("check complete")
   return(df_isoform)
 }
-Human_proteome_retriever <- function(){
+Human_proteome_retriever <- function(con){
   proteome <- data.frame()
   url <- "https://rest.uniprot.org/uniprotkb/search?query=(model_organism:9606%20AND%20reviewed:true)&format=json&includeIsoform=true&size=500&fields=accession,sequence"
   res <- GET(url)
@@ -1512,7 +1514,7 @@ Human_proteome_retriever <- function(){
   }
   peplist <- c()
   for (n in 1:nrow(proteome)){
-    dig = trypsin(proteome$Sequence[n], TRUE, FALSE, FALSE)
+    dig = trypsin(proteome$Sequence[n], TRUE, FALSE, FALSE, con)
     peplist <- c(peplist, dig$peptide)
   }
   peplist = unique(peplist)
@@ -1537,9 +1539,9 @@ Human_proteome_checker <- function(Table, Mutant_peptides, Reference_peptides,
   names(m)[names(m) == 'Unique_in_Proteome'] <- lable
   return(m)
 }
-Human_proteome_filter <- function(Table, Mutant_peptides, Passed, Allowance, Peptide_type){
-  if (file.exists(paste(Path, "/Uniprot_Human_proteome_peptides.txt", sep = ""))){
-    peplist = scan(paste(Path, "/Uniprot_Human_proteome_peptides.txt", sep = ""), character())
+Human_proteome_filter <- function(Table, Mutant_peptides, Passed, Allowance, Peptide_type, con){
+  if (file.exists(paste(Path, "/QuavaPeptidePicker_data.sqlite", sep = ""))){
+    peplist = dbReadTable(con, "Uniprot_Human_proteome_peptides")$Peptide
   }else{
     # peplist <- Human_proteome_retriever()
     # write(peplist,file = "Uniprot_Human_proteome_peptides.txt")
@@ -1666,7 +1668,7 @@ PTM_Filter <- function(Table, Uniprot_id, GDC_native_seq, GDC_mut_seq,
             stop = start + nchar(Mut_peptide[n]) -1
           }
         }else{
-          df3 = trypsin(Native_canon_seq[n], TRUE, TRUE, FALSE)
+          df3 = trypsin(Native_canon_seq[n], TRUE, TRUE, FALSE, con)
           loc = grep(Native_peptide[n], df3$peptide)
           if(length(loc) == 1){
             start = df3$start[loc]
@@ -1784,7 +1786,7 @@ PTM_Filter <- function(Table, Uniprot_id, GDC_native_seq, GDC_mut_seq,
   return(Table)
 }
 SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_peptide, 
-                      Native_peptide, Nat_Peptide_start, Nat_Peptide_end, Passed){
+                      Native_peptide, Nat_Peptide_start, Nat_Peptide_end, Passed, con){
   index = which(Passed == TRUE)
   ids = Uniprot_ids[index]
   ids = unique(ids)
@@ -1836,7 +1838,7 @@ SNP_filter = function(Table, Uniprot_ids, GDC_native_seq, Native_canon_seq, Mut_
               stop = start + nchar(Mut_peptide[n]) -1
             }
           }else{
-            df3 = trypsin(Native_canon_seq[n], TRUE, TRUE, FALSE)
+            df3 = trypsin(Native_canon_seq[n], TRUE, TRUE, FALSE, con)
             loc = grep(Native_peptide[n], df3$peptide)
             if(length(loc) == 1){
               start = df3$start[loc]
@@ -2003,9 +2005,9 @@ Reference_peptide_list_generator = function(){
   ref_pep_list = unique(ref_pep_list)
   return(ref_pep_list)
 }
-Reference_peptide_list_checker = function(Table, Peptides_column, Passed){
-  if (file.exists(paste(Path, "/ref_pep_list.txt", sep = ""))){
-    ref_pep_list = scan(file = paste(Path, "/ref_pep_list.txt", sep = ""), character())
+Reference_peptide_list_checker = function(Table, Peptides_column, Passed, con){
+  if (file.exists(paste(Path, "/QuavaPeptidePicker_data.sqlite", sep = ""))){
+    ref_pep_list = dbReadTable(con, "ref_pep_list")$Peptide
   }else{
     ref_pep_list = Reference_peptide_list_generator()
     write(ref_pep_list, file = paste(Path, "/ref_pep_list.txt", sep = ""))
@@ -2027,11 +2029,11 @@ Reference_peptide_list_checker = function(Table, Peptides_column, Passed){
   return(Table)
 }
 expasy_digestion_efficiency_check = function(Table, peptide_column, sequence_column, 
-                                             passed_column, min_efficiency, label){
+                                             passed_column, min_efficiency, label, con){
   index = grep(TRUE, passed_column)
   checklist = rep(FALSE, nrow(Table))
   for (n in index){
-    df3 = trypsin(sequence_column[n], FALSE, TRUE, TRUE)
+    df3 = trypsin(sequence_column[n], FALSE, TRUE, TRUE, con)
     index2 = grep(peptide_column[n], df3$peptide, fixed = TRUE)
     if (length(index2) == 1){
       if (index2 == nrow(df3)){
@@ -2096,6 +2098,7 @@ GRAVY_Calculator = function(Peptide_list){
 }
 #General full mutation function
 mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
+  con <- dbConnect(RSQLite::SQLite(), paste(Path, "/QuavaPeptidePicker_data.sqlite", sep = ""))
   #Needed columns
   #transcript_id, Uniprot id, hgvsc, hgvsp, Consequence
   #or
@@ -2292,8 +2295,8 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   }
   
   #get cdna list
-  if (file.exists(paste(Path, "/Ensembl_cdna_library.txt", sep = ""))){
-    cdna_list = read.csv(paste(Path, "/Ensembl_cdna_library.txt", sep = ""))
+  if (file.exists(paste(Path, "/QuavaPeptidePicker_data.sqlite", sep = ""))){
+    cdna_list = dbReadTable(con, "Ensembl_cdna_library")
     need_ids = unique(Table2$transcript_id)
     index = grep(FALSE, (need_ids %in% cdna_list$ensembl_transcript_id))
     need_ids = need_ids[index]
@@ -2310,25 +2313,24 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       cdna_list2 <- unique(cdna_list2)
       row.names(cdna_list2) <- NULL
       if(nrow(cdna_list2) != 0){
-        cdna_list = rbind(cdna_list, cdna_list2)
-        write.csv(cdna_list, file = paste(Path, "/Ensembl_cdna_library.txt", sep = ""), row.names = FALSE)
+        dbWriteTable(con, name = "Ensembl_cdna_library", value = cdna_list2, append = TRUE, row.names = FALSE)
       }
       rm(cdna_list2)
     }
   }else{
-    need_ids=unique(Table2$transcript_id)
-    index = grep(TRUE, (is.na(need_ids)))
-    if (length(index) != 0){
-      need_ids <- need_ids[-c(index)]
-    }
-    cdna_list = Ensembl_cdna_sequence_retreiver(need_ids)
-    index = grep(TRUE, (is.na(cdna_list$cdna)))
-    if (length(index) != 0){
-      cdna_list <- cdna_list[-c(index),]
-    }
-    cdna_list = unique(cdna_list)
-    row.names(cdna_list) <- NULL
-    write.csv(cdna_list, file = "data/Ensembl_cdna_library.txt", row.names = FALSE)
+    # need_ids=unique(Table2$transcript_id)
+    # index = grep(TRUE, (is.na(need_ids)))
+    # if (length(index) != 0){
+    #   need_ids <- need_ids[-c(index)]
+    # }
+    # cdna_list = Ensembl_cdna_sequence_retreiver(need_ids)
+    # index = grep(TRUE, (is.na(cdna_list$cdna)))
+    # if (length(index) != 0){
+    #   cdna_list <- cdna_list[-c(index),]
+    # }
+    # cdna_list = unique(cdna_list)
+    # row.names(cdna_list) <- NULL
+    # write.csv(cdna_list, file = "data/Ensembl_cdna_library.txt", row.names = FALSE)
   }
   
   index = which(is.na(Table2$Mutant_sequence))
@@ -2401,7 +2403,8 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   for (n in index){
     Table2$variant_tryptic_peptide[n] <- MSIIFS_pep_generator(hgvsp = Table2$HGVSP[n],
                                                              Var_seq = Table2$Mutant_sequence[n],
-                                                             return = "peptide")
+                                                             return = "peptide",
+                                                             con)
   }
   
   #Generate Native GDC tryptic peptide for comparison with mutants
@@ -2411,7 +2414,8 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   for (n in index){
     x <- MSIIFS_pep_generator(hgvsp = Table2$HGVSP[n],
                               Var_seq = Table2$Native_sequence[n],
-                              return = "All")
+                              return = "All",
+                              con)
     
     Table2$WT_tryptic_peptide[n] <- x[1]
     Table2$Peptide_start[n] <- x[2]
@@ -2437,7 +2441,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   
   for (n in main_index){
     if(!(is.na(Table2$Native_Canonical_Sequence[n])) & !(is.na(Table2$WT_tryptic_peptide[n]))){
-      df3 = trypsin(Table2$Native_Canonical_Sequence[n], TRUE, FALSE, FALSE)
+      df3 = trypsin(Table2$Native_Canonical_Sequence[n], TRUE, FALSE, FALSE, con)
       Table2$Canonical_check[n] <- Table2$WT_tryptic_peptide[n] %in% df3$peptide
     }else{
       Table2$Canonical_check[n] <- FALSE
@@ -2460,7 +2464,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   
   for (n in main_index){
     if(!(is.na(Table2$Native_sequence[n])) & !(is.na(Table2$variant_tryptic_peptide[n]))){
-      df3 = trypsin(Table2$Native_sequence[n], TRUE, TRUE, FALSE)
+      df3 = trypsin(Table2$Native_sequence[n], TRUE, TRUE, FALSE, con)
       Table2$Unique_check_1[n] <- !(Table2$variant_tryptic_peptide[n] %in% df3$peptide)
     }else{
       Table2$Unique_check_1[n] <- FALSE
@@ -2470,7 +2474,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   #Check if WT typtic peptide is unique vs Variant digestion table
   for (n in main_index){
     if(!(is.na(Table2$Mutant_sequence[n])) & !(is.na(Table2$WT_tryptic_peptide[n])) & (Table2$Mutant_sequence[n] != "")){
-      df3 = trypsin(Table2$Mutant_sequence[n], TRUE, TRUE, FALSE)
+      df3 = trypsin(Table2$Mutant_sequence[n], TRUE, TRUE, FALSE, con)
       Table2$Unique_check_2[n] <- !(Table2$WT_tryptic_peptide[n] %in% df3$peptide)
     }else{
       Table2$Unique_check_2[n] <- FALSE
@@ -2555,7 +2559,8 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   Table2 = Isoform_filter(Table = Table2,
                           Uniprot_ids = Table2$Uniprot_id, 
                           Tryptic_peptides = Table2$WT_tryptic_peptide, 
-                          Passed = Table2$Pass)
+                          Passed = Table2$Pass,
+                          con)
   
   if(progress_bar_show==TRUE){
     updateProgressBar(
@@ -2570,8 +2575,8 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   
   #check for mutant peptide uniqueness among human proteome
   #temp_pass = !(is.na(Table2$Isoforms))
-  Table2 <- Human_proteome_filter(Table2, Table2$variant_tryptic_peptide, Passed = Table2$Pass, Allowance = rep(0, nrow(Table2)), Peptide_type = "Mutant")
-  Table2 <- Human_proteome_filter(Table2, Table2$WT_tryptic_peptide, Passed = Table2$Pass, Allowance = Table2$Isoforms, Peptide_type = "Native")
+  Table2 <- Human_proteome_filter(Table2, Table2$variant_tryptic_peptide, Passed = Table2$Pass, Allowance = rep(0, nrow(Table2)), Peptide_type = "Mutant", con)
+  Table2 <- Human_proteome_filter(Table2, Table2$WT_tryptic_peptide, Passed = Table2$Pass, Allowance = Table2$Isoforms, Peptide_type = "Native", con)
   
   if(progress_bar_show==TRUE){
     updateProgressBar(
@@ -2633,7 +2638,8 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   #check if peptides have been observed previously in literature (PeptideAtlas, GPMdb)
   Table2 = Reference_peptide_list_checker(Table = Table2, 
                                           Peptides_column = Table2$WT_tryptic_peptide,
-                                          Passed = Table2$Pass)
+                                          Passed = Table2$Pass,
+                                          con)
   
   if(progress_bar_show==TRUE){
     updateProgressBar(
@@ -2654,7 +2660,8 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
                                              sequence_column = Table2$Mutant_sequence,
                                              passed_column = temp_pass,
                                              min_efficiency = 0.1,
-                                             label = "Mutant")
+                                             label = "Mutant",
+                                             con)
   
   temp_pass = !(is.na(Table2$WT_tryptic_peptide))
   Table2 = expasy_digestion_efficiency_check(Table = Table2,
@@ -2662,7 +2669,8 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
                                              sequence_column = Table2$Native_sequence, 
                                              passed_column = temp_pass,
                                              min_efficiency = 0.1,
-                                             label = "Native")
+                                             label = "Native",
+                                             con)
   if(progress_bar_show==TRUE){
     updateProgressBar(
       session = session,
