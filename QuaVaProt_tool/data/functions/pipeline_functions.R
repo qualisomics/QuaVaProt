@@ -10,11 +10,9 @@ library(DBI)
 
 #open connection to db
 Path = file.path(getwd(), "data")
-message(Path)
 if(file.exists(paste(Path, "/QuavaPeptidePicker_data.sqlite", sep = ""))){
   con <- dbConnect(RSQLite::SQLite(), paste(Path, "/QuavaPeptidePicker_data.sqlite", sep = ""))
-  message(paste(Path, "/QuavaPeptidePicker_data.sqlite", sep = ""))
-  message("Initializingjob")
+  print("Initializingjob")
 }
 
 #checker for uniprot,ensembl,dbsnp
@@ -1310,7 +1308,7 @@ trypsin = function(sequence, simple_digestion=TRUE, with_location=FALSE, with_ef
       dig_table = dbReadTable(con, "Trpsin_digestion_efficiency")
       assign("dig_table", dig_table, envir = .GlobalEnv)
     }else{
-      message("Error: No digestion table file found")
+      print("Error: No digestion table file found")
     }
   }
   
@@ -1465,11 +1463,9 @@ Isoform_filter <- function(Table, Uniprot_ids, Tryptic_peptides, Passed, con){
     ")
     need_ids <- dbGetQuery(con, query)$Uniprot_id
     if (length(need_ids) != 0){
-      message("ids not in file, fetching")
       Isoform_table2 <- Isoform_retriever(unique(need_ids), con)
       Isoform_table2 <- unique(Isoform_table2)
       dbWriteTable(con, name = "Uniprot_isoform_library", value = Isoform_table2, append = TRUE, row.names = FALSE)
-      message("write complete")
     }
   }else{
     # message("no file detected, fetching all ids")
@@ -1480,13 +1476,12 @@ Isoform_filter <- function(Table, Uniprot_ids, Tryptic_peptides, Passed, con){
     # write.csv(Isoform_table, file = paste(Path, "/Uniprot_isoform_library.txt", sep = ""), row.names = FALSE)
     # message("write complete 2")
   }
-  message("check isoforms")
+
   df_isoform <- Isoform_Checker(Table, 
                                 Uniprot_ids, 
                                 Tryptic_peptides,
                                 con, 
                                 Passed)
-  message("check complete")
   return(df_isoform)
 }
 Human_proteome_retriever <- function(con){
@@ -2107,7 +2102,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
   
   #first, check that all api are running
   #uniprot, ensembl, dbsnp,
-  message("Checkingconnection")
+  print("Checkingconnection")
   
 
   if(!check_api_running()){
@@ -2131,7 +2126,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|1")
+  print("Progress|1")
   
   if(nrow(Table) != 1){
     Table2 = data.frame(order = c(1:nrow(Table)), Table)
@@ -2157,7 +2152,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|2")
+  print("Progress|2")
   
   class(Table2$transcript_id) <- "character"
   class(Table2$Uniprot_id) <- "character"
@@ -2177,7 +2172,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|3")
+  print("Progress|3")
   
   Table2 = Ensembl_to_Uniprot_Canonical_finder(Table2, Table2$Gene_id)
   
@@ -2190,7 +2185,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|4")
+  print("Progress|4")
   
   index = which(colnames(Table2) == "Uniprot_id.y")
   index2 = which(is.na(Table2$Uniprot_id.x))
@@ -2229,7 +2224,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|5")
+  print("Progress|5")
   
   Table2 = Ensembl_protein_sequence_retreiver(Table2, Table2$transcript_id)
   
@@ -2278,7 +2273,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|6")
+  print("Progress|6")
   
   #get mutants
   #MSI
@@ -2353,7 +2348,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|7")
+  print("Progress|7")
   
   #validation 1 (wt)
   Table2 = data.frame(Table2, Mutation_validation_1 = NA)
@@ -2394,7 +2389,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|8")
+  print("Progress|8")
   
   #mutant peptides
   index = which(Table2$Pass == TRUE)
@@ -2433,7 +2428,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|9")
+  print("Progress|9")
   
   #Check if native peptide is anywhere in canonical native peptide digestion table
   #(is this a mutation that could happen in the canonical?)
@@ -2457,7 +2452,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|10")
+  print("Progress|10")
   
   #Check if mutant typtic peptide is unique vs wt digestion table
   Table2 = data.frame(Table2, Unique_check_1=NA)
@@ -2492,7 +2487,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|11")
+  print("Progress|11")
   
   #Additional Filters
   #Filter peptide by length (7-25)
@@ -2509,7 +2504,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|12")
+  print("Progress|12")
   
   #Filter peptide by absense of n-terminal glutamine
   
@@ -2525,7 +2520,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|13")
+  print("Progress|13")
   
   #Filter peptide by absense some residue (C M, W) and pairs (DG, DP, NG, QG) (PPP,PPG)
   
@@ -2553,7 +2548,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|14")
+  print("Progress|14")
   
   #compare native peptide against isoforms
   Table2 = Isoform_filter(Table = Table2,
@@ -2571,7 +2566,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|15")
+  print("Progress|15")
   
   #check for mutant peptide uniqueness among human proteome
   #temp_pass = !(is.na(Table2$Isoforms))
@@ -2587,7 +2582,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|16")
+  print("Progress|16")
   
   #check for PTMs AND Cleave sites AND Main Chain in peptide region
   Table2 <- PTM_Filter(Table = Table2,
@@ -2611,7 +2606,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|17")
+  print("Progress|17")
   
   #check peptides for any significant (>1%) natual variants (SNPs)
   Table2 = SNP_filter(Table = Table2, 
@@ -2633,7 +2628,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|18")
+  print("Progress|18")
   
   #check if peptides have been observed previously in literature (PeptideAtlas, GPMdb)
   Table2 = Reference_peptide_list_checker(Table = Table2, 
@@ -2650,7 +2645,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|19")
+  print("Progress|19")
   
   #check digestion efficiency is above 10% with expasy peptidecutter
   
@@ -2680,7 +2675,7 @@ mutation_processor = function(Table, progress_bar_show=TRUE, session=NULL){
       title = paste("Process")
     )
   }
-  message("Progress|20")
+  print("Progress|20")
   
   Table2[!Table2$Pass, c("Canonical_check","Unique_check_1", "Unique_check_2","Mutant_Length_Filter","Native_Length_Filter",
                          "Mutant_N_Gln_Filter","Native_N_Gln_Filter","Mutant_C_Filter","Mutant_M_Filter",
