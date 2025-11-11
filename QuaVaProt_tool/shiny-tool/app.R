@@ -377,7 +377,7 @@ server <- function(input, output, session) {
   })
   
   observe({
-    invalidateLater(millis = 100, session = session)
+    invalidateLater(millis = 2000, session = session)
     if(bg_process$values == TRUE){
       if(bg_results$values$is_alive()){
         print("process is alive")
@@ -769,4 +769,5 @@ ui <-
 
 # Run the app ----
 shinyApp(ui = ui, server = server)
+
 
