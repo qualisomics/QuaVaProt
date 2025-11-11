@@ -8,6 +8,8 @@ library(httr, include.only = c("GET", "POST", "accept", "content_type"))
 library(jsonlite)
 library(callr)
 library(shinycssloaders)
+library(RSQLite)
+library(DBI)
 
 #set cashe dir to temp
 options(sass.cache = "/tmp/app_cache/sass/")
@@ -287,45 +289,44 @@ server <- function(input, output, session) {
     removeModal()
   })
 
-  # observeEvent(input$submit.button, {
-  #   removeModal()
-  #   tmp_upload <- isolate(dfupload())
-  #   entries_processed = nrow(tmp_upload)
-  # 
-  #   bg_results$values <- r_bg(func =
-  #                               function(Table, progress_bar_show, session, app_dir){
-  #                                 setwd(app_dir)
-  #                                 source(file = "data/functions/pipeline_functions.R", local = TRUE)
-  #                                 #read_write_checker()
-  #                                 mutation_processor(Table, progress_bar_show, session)
-  #                               },
-  #                             supervise = TRUE,
-  #                             args = list(
-  #                               Table = tmp_upload,
-  #                               progress_bar_show = FALSE,
-  #                               session = session,
-  #                               app_dir = getwd()
-  #                             ),
-  #                             wd = tempdir(),
-  #                             stdout = "|"
-  #                             )
-  #   bg_process$values <- TRUE
-  #   track_progress$values <- 1
-  # })
-  
   observeEvent(input$submit.button, {
     removeModal()
     tmp_upload <- isolate(dfupload())
     entries_processed = nrow(tmp_upload)
-    
-    df_peptide_tool_output$values <- mutation_processor(Table = tmp_upload, progress_bar_show = FALSE, session = session)
-    df_peptide_tool_output_filtered$values <- df_peptide_tool_output$values
-    
-    track_progress$values <- 2
-    
-    
+
+    bg_results$values <- r_bg(func =
+                                function(Table, progress_bar_show, session, app_dir){
+                                  setwd(app_dir)
+                                  source(file = "data/functions/pipeline_functions.R", local = TRUE)
+                                  #read_write_checker()
+                                  mutation_processor(Table, progress_bar_show, session)
+                                },
+                              supervise = TRUE,
+                              args = list(
+                                Table = tmp_upload,
+                                progress_bar_show = FALSE,
+                                session = session,
+                                app_dir = getwd()
+                              ),
+                              wd = tempdir(),
+                              stdout = "|"
+                              )
+    bg_process$values <- TRUE
+    track_progress$values <- 1
   })
   
+  # observeEvent(input$submit.button, {
+  #   removeModal()
+  #   tmp_upload <- isolate(dfupload())
+  #   entries_processed = nrow(tmp_upload)
+  #   
+  #   df_peptide_tool_output$values <- mutation_processor(Table = tmp_upload, progress_bar_show = FALSE, session = session)
+  #   df_peptide_tool_output_filtered$values <- df_peptide_tool_output$values
+  #   track_progress$values <- 2
+  #   
+  #   
+  # })
+  # 
   
   
   
@@ -375,67 +376,67 @@ server <- function(input, output, session) {
     }
   })
   
-  # observe({
-  #   invalidateLater(millis = 100, session = session)
-  #   if(bg_process$values == TRUE){
-  #     if(bg_results$values$is_alive()){
-  #       print("process is alive")
-  #       progress = bg_results$values$read_output_lines()
-  #       if(length(progress) != 0){
-  #         print(progress)
-  #         progress_check = which(grepl("Progress", progress, fixed = T))
-  #         if(!is.null(progress_check) && length(progress_check) > 0){
-  #           progress_step = progress[progress_check[length(progress_check)]]
-  #           progress_step = as.numeric(substr(progress_step, 15, nchar(progress_step)-1))
-  #           updateProgressBar(
-  #             session = session,
-  #             status = "custom",
-  #             id = "pb2",
-  #             value = progress_step, total = 20,
-  #             title = paste("Working...")
-  #           )
-  #         }else if(any(grepl("Initializingjob", progress))){
-  #           updateProgressBar(
-  #             session = session,
-  #             status = "custom",
-  #             id = "pb2",
-  #             value = 0, total = 20,
-  #             title = paste("Initializing job")
-  #           )
-  #         }else if(any(grepl("Checkingconnection", progress))){
-  #           updateProgressBar(
-  #             session = session,
-  #             status = "custom",
-  #             id = "pb2",
-  #             value = 0, total = 20,
-  #             title = paste("Checking connection")
-  #           )
-  #         }
-  #       }
-  #       session$sendCustomMessage("heartbeat", list(time = Sys.time()))
-  #     }else{
-  #       if (is.null(df_peptide_tool_output$values)) {
-  #         df_peptide_tool_output$values <- tryCatch(
-  #           {
-  #             bg_results$values$get_result()
-  #           },
-  #           error = function(e) {
-  #             message("Temporary failure, retrying: ", e$message)
-  #             NULL
-  #           }
-  #         )
-  #         if (!is.null(df_peptide_tool_output$values)) {
-  #           df_peptide_tool_output_filtered$values <- df_peptide_tool_output$values
-  #           bg_process$values <- FALSE
-  #           track_progress$values <- 2
-  #         } else {
-  #           output$status <- renderText("Job finished but result not ready yet, retrying...")
-  #         }
-  #       }
-  #     }
-  #   }
-  # })
-  # 
+  observe({
+    invalidateLater(millis = 100, session = session)
+    if(bg_process$values == TRUE){
+      if(bg_results$values$is_alive()){
+        print("process is alive")
+        progress = bg_results$values$read_output_lines()
+        if(length(progress) != 0){
+          print(progress)
+          progress_check = which(grepl("Progress", progress, fixed = T))
+          if(!is.null(progress_check) && length(progress_check) > 0){
+            progress_step = progress[progress_check[length(progress_check)]]
+            progress_step = as.numeric(substr(progress_step, 15, nchar(progress_step)-1))
+            updateProgressBar(
+              session = session,
+              status = "custom",
+              id = "pb2",
+              value = progress_step, total = 20,
+              title = paste("Working...")
+            )
+          }else if(any(grepl("Initializingjob", progress))){
+            updateProgressBar(
+              session = session,
+              status = "custom",
+              id = "pb2",
+              value = 0, total = 20,
+              title = paste("Initializing job")
+            )
+          }else if(any(grepl("Checkingconnection", progress))){
+            updateProgressBar(
+              session = session,
+              status = "custom",
+              id = "pb2",
+              value = 0, total = 20,
+              title = paste("Checking connection")
+            )
+          }
+        }
+        session$sendCustomMessage("heartbeat", list(time = Sys.time()))
+      }else{
+        if (is.null(df_peptide_tool_output$values)) {
+          df_peptide_tool_output$values <- tryCatch(
+            {
+              bg_results$values$get_result()
+            },
+            error = function(e) {
+              message("Temporary failure, retrying: ", e$message)
+              NULL
+            }
+          )
+          if (!is.null(df_peptide_tool_output$values)) {
+            df_peptide_tool_output_filtered$values <- df_peptide_tool_output$values
+            bg_process$values <- FALSE
+            track_progress$values <- 2
+          } else {
+            output$status <- renderText("Job finished but result not ready yet, retrying...")
+          }
+        }
+      }
+    }
+  })
+
   
   
   
@@ -768,5 +769,4 @@ ui <-
 
 # Run the app ----
 shinyApp(ui = ui, server = server)
-
 
