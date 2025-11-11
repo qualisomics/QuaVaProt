@@ -11,6 +11,8 @@ WORKDIR /srv/shiny-server/
 
 # Copy the Shiny app to the image
 COPY shiny-tool /srv/shiny-server/
+COPY data /srv/shiny-server/data/
+COPY www /srv/shiny-server/www/
 
 # Create a data folder inside the container with proper permissions
 RUN mkdir -p /srv/shiny-server/data && \

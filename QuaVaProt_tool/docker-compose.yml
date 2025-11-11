@@ -7,11 +7,6 @@ services:
     container_name: shiny-tool
     ports:
       - "3838:3838"
-    volumes:
-      - ./shiny-tool:/srv/shiny-server/
-      - ./data:/srv/shiny-server/data/:rw
-      - ./www:/srv/shiny-server/www/
-
   nginx:
     image: nginx:latest
     container_name: nginx
@@ -20,5 +15,4 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
     depends_on:
-
       - shiny
