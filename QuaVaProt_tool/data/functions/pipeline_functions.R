@@ -1456,14 +1456,30 @@ Isoform_filter <- function(Table, Uniprot_ids, Tryptic_peptides, Passed, con){
     if (length(index) != 0){
       need_ids = need_ids[-c(index)]
     }
-    query <- paste0("
+    
+    
+    
+    missing_ids <- c()
+    for (n in seq(1, length(need_ids), 400)){
+      g = n+399
+      if (g > length(need_ids)){
+        g = length(need_ids)
+      }
+      
+      query <- paste0("
       SELECT id AS Uniprot_id
-      FROM (SELECT '", paste(need_ids, collapse = "' AS id UNION ALL SELECT '"), "' AS id)
+      FROM (SELECT '", paste(need_ids[n:g], collapse = "' AS id UNION ALL SELECT '"), "' AS id)
       WHERE id NOT IN (SELECT Uniprot_id FROM Uniprot_isoform_library)
-    ")
-    need_ids <- dbGetQuery(con, query)$Uniprot_id
-    if (length(need_ids) != 0){
-      Isoform_table2 <- Isoform_retriever(unique(need_ids), con)
+      ")
+      missing_ids <- c(missing_ids, dbGetQuery(con, query)$Uniprot_id)
+    }
+    
+
+    
+    
+    
+    if (length(missing_ids) != 0){
+      Isoform_table2 <- Isoform_retriever(unique(missing_ids), con)
       Isoform_table2 <- unique(Isoform_table2)
       dbWriteTable(con, name = "Uniprot_isoform_library", value = Isoform_table2, append = TRUE, row.names = FALSE)
     }
@@ -2794,15 +2810,4 @@ read_write_checker = function(){
   
   return(tmp)
 }
-
-
-
-
-
-
-
-
-
-
-
 
