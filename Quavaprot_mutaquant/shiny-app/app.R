@@ -201,7 +201,7 @@ server <- function(input, output, session) {
                     style = "background-color:#EFEDEC;",
                     card(
                       style = "border-radius: 10px",
-                      card_header(h2("Peptide Count")),
+                      card_header(h2("Paired Peptide Assay Count")),
                       card_body(verbatimTextOutput("PeptideCount")),
                       align = "center"
                     ),
@@ -586,7 +586,7 @@ server <- function(input, output, session) {
 
   
   #Home page tab
-  output$PeptideCount <- renderText({length(unique(c(GAPP_table2$Variant.Tryptic.Peptide)))})
+  output$PeptideCount <- renderText({nrow(GAPP_table2)})
   output$ProteinCount <- renderText({length(unique(GAPP_table2$Symbol))})
   
   variant_distribution <- reactive({
