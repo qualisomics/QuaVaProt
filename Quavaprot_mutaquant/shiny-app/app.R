@@ -189,12 +189,12 @@ server <- function(input, output, session) {
                     card_header(h1(strong("Mutaquant")),
                                 align = "center"),
                     card_body(
-                      h5("Welcome to Mutaquant, a resource centered on predicting and 
-                      characterizing peptides containing variations, while providing 
-                      adjacent annotations and references, allowing for a streamlined 
-                      approach to selecting peptide targets for quantitative proteomic 
-                      assay developement."),
-                      align = "justify"
+                      style = "font-size: 21px",
+                      p("MutaQuant is a targeted proteogenomics platform that translates cancer variant catalogues into 
+                         quantitative, protein-level assays, enabling direct measurement of whether genomic mutations produce 
+                         stable, expressed proteins. Each assay comprises four peptides – paired wild-type and variant forms 
+                         with both labeled and unlabeled synthetic standards – providing empirically validated mass spectrometry 
+                         assays that make cancer variants quantitatively actionable beyond genomics alone.")
                     )),
                   layout_columns(
                     col_widths = c(12,12),
@@ -202,13 +202,17 @@ server <- function(input, output, session) {
                     card(
                       style = "border-radius: 10px",
                       card_header(h2("Paired Peptide Assay Count")),
-                      card_body(verbatimTextOutput("PeptideCount")),
+                      card_body(
+                        style = "font-size: 30px",
+                        verbatimTextOutput("PeptideCount")),
                       align = "center"
                     ),
                     card(
                       style = "border-radius: 10px",
                       card_header(h2("Protein Count")),
-                      card_body(verbatimTextOutput("ProteinCount")),
+                      card_body(
+                        style = "font-size: 30px",
+                        verbatimTextOutput("ProteinCount")),
                       align = "center"
                     )),
                   card(
