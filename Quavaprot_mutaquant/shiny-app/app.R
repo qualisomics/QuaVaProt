@@ -106,7 +106,7 @@ server <- function(input, output, session) {
   #UI
   output$UI_output <- renderUI(
     page_navbar(
-      title = "Mutaquant",
+      title = "MutaQuant",
       id = "Quava_home",
       position = "fixed-top",
       theme = bs_theme(
@@ -186,7 +186,7 @@ server <- function(input, output, session) {
                   style = "background-color:#EFEDEC;padding:25px; border-radius: 10px !important; border: 2px solid;",
                   card(
                     style = "border-radius: 10px",
-                    card_header(h1(strong("Mutaquant")),
+                    card_header(h1(strong("MutaQuant")),
                                 align = "center"),
                     card_body(
                       style = "font-size: 21px",
