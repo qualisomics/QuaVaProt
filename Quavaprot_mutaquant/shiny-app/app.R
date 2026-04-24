@@ -443,8 +443,28 @@ server <- function(input, output, session) {
             fluidRow(
               style = "padding-top: 40px;",
               layout_columns(
-                col_widths = c(12,6,6, 12,6,6, 12,12,12,12, 6,-2,2,2,6,6, 10,2,12, 10,2,12, 12),
-                row_heights = c("auto", "600px ","auto","500px","auto","500px","auto", "auto","auto","auto","auto","620px","auto","620px","auto"),
+                col_widths = c(12,6,6, #protein variant info
+                              12,6,6, #mutation case info
+                              12,12, #wt transitions
+                              12,12,  #var transitions
+                              6,-2,2,2,6,6, #peptide location
+                              10,2,12, #gene ontology
+                              10,2,12 #kegg
+                              ),     
+                row_heights = c("auto", "600px", #protein variant info
+                                if(!(is.na(GAPP_table2$Mutation.id[entry_index()]))){
+                                  c("auto","500px") #mutation case info
+                                }else{c("0", "0")},
+                                if(!(is.na(GAPP_table2$WT_Trasitions[entry_index()]))){
+                                  c("auto","500px") #wt transitions
+                                }else{c("0", "0")},
+                                if(!(is.na(GAPP_table2$Variant_Trasitions[entry_index()]))){
+                                  c("auto", "auto") #var transitions
+                                }else{c("0", "0")},
+                                "auto","auto", #peptide location
+                                "auto","620px", #gene ontology
+                                "auto","620px" #kegg
+                                ),
                 h1("Protein Variant Information", style = "margin: 0; padding: 0;"),
                 card(
                   DT::dataTableOutput("summary_table_1"),
@@ -454,38 +474,44 @@ server <- function(input, output, session) {
                   DT::dataTableOutput("summary_table_2"),
                   style="border:none;"
                 ),
-                h1("Mutation Case Information"),
-                card(
-                  style = "border-radius: 10px;",
-                  card_header(h2("Disease Association"),
-                              align = "center"),
-                  card_body(plotlyOutput("disease_type", height = "auto", width = "auto"))
-                ),
-                card(
-                  style = "border-radius: 10px;",
-                  card_header(h2("Disease Primary Site"),
-                              align = "center"),
-                  card_body(plotlyOutput("disease_site", height = 500, width = "auto"))
-                ),
+                if(!(is.na(GAPP_table2$Mutation.id[entry_index()]))){
+                  h1("Mutation Case Information")
+                }else{NULL},
+                if(!(is.na(GAPP_table2$Mutation.id[entry_index()]))){
+                  card(
+                    style = "border-radius: 10px;",
+                    card_header(h2("Disease Association"),
+                                align = "center"),
+                    card_body(plotlyOutput("disease_type", height = "auto", width = "auto"))
+                  )
+                }else{NULL},
+                if(!(is.na(GAPP_table2$Mutation.id[entry_index()]))){
+                  card(
+                    style = "border-radius: 10px;",
+                    card_header(h2("Disease Primary Site"),
+                                align = "center"),
+                    card_body(plotlyOutput("disease_site", height = 500, width = "auto"))
+                  )
+                },
                 
                 if(!(is.na(GAPP_table2$WT_Trasitions[entry_index()]))){
                   h1("Wild Type Transitions")
-                },
+                }else{NULL},
                 if(!(is.na(GAPP_table2$WT_Trasitions[entry_index()]))){
                   card(
                     style="border:none;",
                     DT::dataTableOutput("transitionstable_nat")
                   )
-                },
+                }else{NULL},
                 if(!(is.na(GAPP_table2$Variant_Trasitions[entry_index()]))){
                   h1("Variant Transitions")
-                },
+                }else{NULL},
                 if(!(is.na(GAPP_table2$Variant_Trasitions[entry_index()]))){
                   card(
                     style="border:none;",
                     DT::dataTableOutput("transitionstable_mut")
                   )
-                },
+                }else{NULL},
                 
                 h1("Peptide Location"),
                 downloadButton(outputId = "fasta_sequence", label = "Download Sequence Fasta"),
@@ -1375,17 +1401,22 @@ server <- function(input, output, session) {
   
   disease_case <- reactive({
     mut_id <- GAPP_table2$Mutation.id[entry_index()]
-    url = paste("https://api.gdc.cancer.gov/ssms/",mut_id,
-                "?fields=occurrence.case.disease_type,occurrence.case.primary_site&format=JSON", sep = "")
-    res <- GET(url)
-    data = fromJSON(rawToChar(res$content))
-    data = data[["data"]][["occurrence"]][["case"]]
-    disease_site = as.data.frame(table(data$primary_site))
-    disease_type = as.data.frame(table(data$disease_type))
-    colnames(disease_site) <- c("Primary_site", "Site_Frequency")
-    colnames(disease_type) <- c("Disease_type", "Type_Frequency")
-    disease_case = list(disease_site, disease_type)
-    disease_case
+    if(!(is.na(mut_id))){
+      url = paste("https://api.gdc.cancer.gov/ssms/",mut_id,
+                  "?fields=occurrence.case.disease_type,occurrence.case.primary_site&format=JSON", sep = "")
+      res <- GET(url)
+      data = fromJSON(rawToChar(res$content))
+      data = data[["data"]][["occurrence"]][["case"]]
+      disease_site = as.data.frame(table(data$primary_site))
+      disease_type = as.data.frame(table(data$disease_type))
+      colnames(disease_site) <- c("Primary_site", "Site_Frequency")
+      colnames(disease_type) <- c("Disease_type", "Type_Frequency")
+      disease_case = list(disease_site, disease_type)
+      disease_case
+    }else{
+      NULL
+    }
+
   })
   
   output$disease_type <- renderPlotly({
