@@ -106,7 +106,7 @@ server <- function(input, output, session) {
   #UI
   output$UI_output <- renderUI(
     page_navbar(
-      title = "MutaQuant",
+      title = HTML("PeptiQuant<sup>TM</sup> Onco"),
       id = "Quava_home",
       position = "fixed-top",
       theme = bs_theme(
@@ -186,15 +186,15 @@ server <- function(input, output, session) {
                   style = "background-color:#EFEDEC;padding:25px; border-radius: 10px !important; border: 2px solid;",
                   card(
                     style = "border-radius: 10px",
-                    card_header(h1(strong("MutaQuant")),
+                    card_header(h1(strong(HTML("PeptiQuant<sup>TM</sup> Onco"))),
                                 align = "center"),
                     card_body(
                       style = "font-size: 21px",
-                      p("MutaQuant is a targeted proteogenomics platform that translates cancer variant catalogues into 
+                      p(HTML("PeptiQuant<sup>TM</sup> Onco is a targeted proteogenomics platform that translates cancer variant catalogues into 
                          quantitative, protein-level assays, enabling direct measurement of whether genomic mutations produce 
                          stable, expressed proteins. Each assay comprises four peptides – paired wild-type and variant forms 
                          with both labeled and unlabeled synthetic standards – providing empirically validated mass spectrometry 
-                         assays that make cancer variants quantitatively actionable beyond genomics alone.")
+                         assays that make cancer variants quantitatively actionable beyond genomics alone."))
                     )),
                   layout_columns(
                     col_widths = c(12,12),
